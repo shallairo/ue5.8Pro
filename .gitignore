@@ -1,0 +1,82 @@
+# Unreal Engine generated files
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Compiled source files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.pdb
+*.lib
+*.dylib
+*.module.dll
+*.modules
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Packaging and builds
+*.pak
+*.utoc
+*.ucas
+
+# Editor generated files
+.vs/
+.vscode/
+.idea/
+*.VC.db
+*.VC.opendb
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*~
+*.bak
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Cache directories
+__pycache__/
+*.pyc
+
+# Unreal Engine specific
+*.generated.h
+*.generated.cpp
+*.gen.cpp
+*.gen.h
+
+# Content - 如果Content目录很大，你可能需要考虑使用Git LFS
+# 如果Content目录包含大型二进制资源，取消下面的注释并使用Git LFS
+# Content/**/*.uasset
+# Content/**/*.umap
+
+# 但通常我们保留Content目录，排除其中的缓存
+Content/DerivedDataCache/
+Content/Standalone/
+
+# 项目特定文件
+*.uproject.user
+*.sln.user
