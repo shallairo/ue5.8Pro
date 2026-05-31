@@ -1,0 +1,24 @@
+// SimpleComputeShader.usf
+// Basic compute shader that fills a texture with a gradient
+
+#include "/Engine/Public/Platform.ush"
+#include "/Engine/Private/Common.ush"
+
+RWTexture2D<float4> OutputTexture;
+
+[numthreads(8, 8, 1)]
+void MainCS(uint3 ThreadID : SV_DispatchThreadID)
+{
+    // Get texture dimensions
+    uint Width, Height;
+    OutputTexture.GetDimensions(Width, Height);
+    
+    // Calculate UV coordinates
+    float2 UV = float2(ThreadID.xy) / float2(Width, Height);
+    
+    // Create a simple gradient
+    float4 Color = float4(UV.x, UV.y, 0.5, 1.0);
+    
+    // Write to output texture
+    OutputTexture[ThreadID.xy] = Color;
+}

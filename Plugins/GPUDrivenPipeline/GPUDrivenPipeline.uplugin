@@ -1,0 +1,24 @@
+{
+    "FileVersion": 3,
+    "FriendlyName": "GPU Driven Pipeline",
+    "Version": "1.0.0",
+    "VersionName": "1.0",
+    "CreatedBy": "Developer",
+    "CreatedByURL": "",
+    "DocsURL": "",
+    "MarketplaceURL": "",
+    "SupportURL": "",
+    "EngineVersion": "5.8",
+    "EnabledByDefault": true,
+    "CanContainContent": false,
+    "IsBetaVersion": true,
+    "IsExperimentalVersion": false,
+    "Installed": false,
+    "Modules": [
+        {
+            "Name": "GPUDrivenPipeline",
+            "Type": "Runtime",
+            "LoadingPhase": "PostConfigInit"
+        }
+    ]
+}
