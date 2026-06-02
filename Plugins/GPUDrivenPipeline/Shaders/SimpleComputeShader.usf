@@ -12,6 +12,11 @@ void MainCS(uint3 ThreadID : SV_DispatchThreadID)
     // Get texture dimensions
     uint Width, Height;
     OutputTexture.GetDimensions(Width, Height);
+
+    if (ThreadID.x >= Width || ThreadID.y >= Height)
+    {
+        return;
+    }
     
     // Calculate UV coordinates
     float2 UV = float2(ThreadID.xy) / float2(Width, Height);

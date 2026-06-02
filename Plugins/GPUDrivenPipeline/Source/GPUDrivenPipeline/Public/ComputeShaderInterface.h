@@ -6,6 +6,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "ComputeShaderInterface.generated.h"
 
+class UTextureRenderTarget2D;
+
 UCLASS()
 class GPUDRIVENPIPELINE_API UComputeShaderInterface : public UBlueprintFunctionLibrary
 {
