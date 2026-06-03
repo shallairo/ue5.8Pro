@@ -30,12 +30,12 @@ void UComputeShaderInterface::ExecuteSimpleComputeShader(UTextureRenderTarget2D*
         return;
     }
 
-    // UAV support is required because the compute shader writes directly into the render target.
+    // Compute shader output requires the render target resource to be created with UAV support up front.
     if (!OutputRenderTarget->bSupportsUAV)
     {
-        OutputRenderTarget->bSupportsUAV = true;
-        OutputRenderTarget->UpdateResourceImmediate(false);
-        FlushRenderingCommands();
+        UE_LOG(LogTemp, Warning, TEXT("GPUDrivenPipeline: OutputRenderTarget %s does not have UAV support enabled. Enable UAV support on the render target asset and re-save it before running the demo."),
+            *OutputRenderTarget->GetName());
+        return;
     }
 
     FTextureRenderTarget2DResource* RenderTargetResource =
@@ -68,16 +68,10 @@ void UComputeShaderInterface::ExecuteSimpleComputeShader(UTextureRenderTarget2D*
             }
 
             FUnorderedAccessViewRHIRef OutputUAV = RenderTargetResource->GetUnorderedAccessViewRHI();
-            if (!OutputUAV.IsValid())
-            {
-                OutputUAV = RHICmdList.CreateUnorderedAccessView(
-                    RenderTargetTexture,
-                    FRHIViewDesc::CreateTextureUAV().SetDimensionFromTexture(RenderTargetTexture));
-            }
 
             if (!OutputUAV.IsValid())
             {
-                UE_LOG(LogTemp, Warning, TEXT("GPUDrivenPipeline: Failed to create UAV for %s."),
+                UE_LOG(LogTemp, Warning, TEXT("GPUDrivenPipeline: Render target %s does not expose a valid UAV. Recreate the render target with UAV support enabled."),
                     *RenderTargetName.ToString());
                 return;
             }

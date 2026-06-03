@@ -1,121 +1,116 @@
 # CODEBUDDY.md
 
-This file provides guidance to CodeBuddy Code when working with code in this repository.
+This file provides project guidance for AI coding assistants working in this repository.
 
 ## Project Overview
 
-This is a **UE5.8 source-built project** with minimal skeleton structure. The project uses Unreal Engine 5.8 from source at `D:\unreal\UnrealEngine\Engine\`.
+This is a UE5.8 source-built C++ project focused on a GPU-driven rendering prototype.
+
+The main game module is intentionally minimal. Most active development is in:
+
+```text
+Plugins/GPUDrivenPipeline/
+```
+
+## Current Architecture
+
+- `Source/pro/`: Minimal primary game module.
+- `Plugins/GPUDrivenPipeline/`: Runtime plugin for GPU rendering experiments.
+- `Plugins/GPUDrivenPipeline/Shaders/`: Plugin shader source directory.
+- `docs/`: Active documentation, plans, tests, and guides.
+
+The current plugin already contains:
+
+- Shader directory mapping during module startup.
+- `SimpleComputeShader.usf`.
+- A blueprint-callable compute shader interface.
+- Render-thread dispatch into a UAV-capable render target.
 
 ## Build System
 
-**Primary Build System: Unreal Build Tool (UBT)**
+Primary build system: Unreal Build Tool.
 
-### Target Files
-- `Source/pro.Target.cs` - Game runtime target
-- `Source/proEditor.Target.cs` - Editor target
+Targets:
 
-### Module Dependencies
-From `Source/pro/pro.Build.cs`:
+- `Source/pro.Target.cs`: Game runtime target.
+- `Source/proEditor.Target.cs`: Editor target.
+
+Main module dependencies:
+
 ```csharp
-PublicDependencyModuleNames.AddRange(new string[] { 
-    "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" 
+PublicDependencyModuleNames.AddRange(new string[] {
+    "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput"
 });
 ```
 
-## Common Development Commands
+Plugin dependencies include rendering modules such as `Renderer`, `RenderCore`, `RHI`, and `RHICore`.
 
-### Building
-```bash
-# Via Visual Studio (recommended)
-1. Open pro.sln
-2. Select Development Editor | Win64
-3. Build Solution (Ctrl+Shift+B)
+## Rendering Configuration
 
-# Generate project files
-Right-click pro.uproject → "Generate Visual Studio project files"
+The project is configured for desktop rendering experiments:
+
+- DX12 on Windows.
+- SM6 shader target.
+- Lumen GI and reflections.
+- Ray tracing enabled.
+- Virtual shadow maps enabled.
+- Substrate enabled.
+
+## Documentation Rules
+
+Use `docs/index.md` as the documentation entry point.
+
+Future development plans must live under:
+
+```text
+docs/plan/
 ```
 
-### Running
-```bash
-# Via Visual Studio
-1. Set pro as startup project
-2. Press F5 (Debug) or Ctrl+F5 (Run)
+Plan naming rule:
 
-# Via Editor
-1. Open pro.uproject
-2. Click Play button in viewport
+```text
+docs/plan/plan-YYYY-MM-DD-topic.md
 ```
 
-### Testing
-```bash
-# Automation tests via Editor
-1. Open pro.uproject
-2. Window → Developer Tools → Session Frontend
-3. Select Automation tab
+Learning log location:
 
-# Command line (if automation tools configured)
-AutomationTool.exe -project=E:\unrealProject\pro\pro.uproject -run=AutomationTests
+```text
+docs/learning/
 ```
 
-## Code Architecture
+Learning log naming rule:
 
-### Current State: Minimal Skeleton
-The project has only basic module definition:
-- `Source/pro/pro.h` - Module header (empty except includes)
-- `Source/pro/pro.cpp` - Module implementation (1 line of actual code)
-
-### Rendering Configuration
-From `Config/DefaultEngine.ini`:
-- **Ray Tracing**: Enabled (`r.RayTracing=True`)
-- **Virtual Shadows**: Enabled (`r.Shadow.Virtual.Enable=1`)
-- **Dynamic Global Illumination**: Lumen (method 1)
-- **Reflection Method**: Lumen (method 1)
-- **Substrate**: Enabled (UE5.8 material system)
-- **Platform Targets**: Windows (DX12), Linux (Vulkan SM6), Mac (Metal SM6)
-
-### Plugin Usage
-Only one plugin is enabled:
-- **ModelingToolsEditorMode** - Editor-only modeling tools
-
-## Directory Structure
-
-```
-pro/
-├── Binaries/              # Compiled binaries (git-ignored)
-├── Config/                # Configuration files
-├── Content/               # Game assets (not in version control)
-├── DerivedDataCache/      # Cached data (git-ignored)
-├── Intermediate/          # Build intermediates (git-ignored)
-├── Saved/                 # Editor state and logs (git-ignored)
-├── Source/                # C++ source code
-│   ├── pro/               # Main game module
-│   ├── pro.Target.cs      # Game target configuration
-│   └── proEditor.Target.cs # Editor target configuration
-├── pro.uproject           # Project descriptor
-├── pro.sln                # Visual Studio solution
-└── Automation_pro.sln     # Automation tooling solution
+```text
+docs/learning/YYYY-MM-DD-HHMM-topic.md
 ```
 
-## Important Notes
+Use:
 
-1. **Source-Built Engine**: This project requires Unreal Engine 5.8 built from source
-2. **Git Configuration**: Build artifacts are excluded via `.gitignore`
-3. **Content Management**: Game assets (`.uasset`, `.umap`) are not tracked in version control
-4. **Visual Studio Requirements**: See `.vsconfig` for required components
+- `guide-topic.md` for setup and operation guides.
+- `test-topic.md` for repeatable validation procedures.
+- `report-YYYY-MM-DD-topic.md` for measured results.
+- `note-topic.md` for lightweight technical notes.
+- `archive-topic.md` for inactive historical material.
 
-## Development Workflow
+Keep documents concise and aligned with the current repository state.
 
-1. **Initial Setup**:
-   - Ensure UE5.8 source is built at `D:\unreal\UnrealEngine`
-   - Clone this repository
-   - Right-click `pro.uproject` → "Generate Visual Studio project files"
+Every completed development task should also produce a short teaching-oriented explanation for the user, covering:
 
-2. **Daily Development**:
-   - Use Visual Studio for C++ development
-   - Use Unreal Editor for level design and testing
-   - Run automation tests via Session Frontend in Editor
+- what changed,
+- why it changed,
+- the key engine, rendering, or code concepts involved,
+- the most important debugging or implementation pitfalls.
 
-3. **Adding New Modules**:
-   - Create new module folders under `Source/`
-   - Update `pro.Build.cs` for additional dependencies
-   - Regenerate project files after adding new modules
+When the task produces meaningful learning value, add a learning log under `docs/learning/` using the naming rule above. The title should encode time plus topic so the logs remain chronological and easy to scan.
+
+Do not put active development plans at the root of `docs/`; place them under `docs/plan/`.
+
+## Development Notes
+
+- Do not treat old planning text as truth if it conflicts with current code.
+- Prefer small, verifiable GPU rendering milestones.
+- For timing, distinguish CPU dispatch timing from real GPU elapsed time.
+- Avoid committing generated directories such as `Binaries/`, `Intermediate/`, `Saved/`, and `DerivedDataCache/`.
+- When a task finishes, act as both implementer and teacher: explain the core knowledge in plain language instead of stopping at code delivery.
+- If a task requires compilation, notify the user and let the user perform the compile step.
+- Do not modify `pcgDoc/` unless the user explicitly asks for it.

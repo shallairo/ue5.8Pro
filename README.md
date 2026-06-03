@@ -1,27 +1,47 @@
-# UE5.8 Project
+# UE5.8 GPU-Driven Pipeline Prototype
 
-基于Unreal Engine 5.8源码版的项目。
+This is a UE5.8 source-built C++ project for experimenting with GPU-driven rendering techniques.
 
-## 项目结构
+The current implementation focuses on the `GPUDrivenPipeline` runtime plugin. The plugin includes a basic global compute shader path that writes a gradient into a render target through a blueprint-callable interface.
 
-- `Config/`: 项目配置文件
-- `Source/`: C++源代码
-- `Content/`: 游戏资源（未包含在版本控制中）
-- `pro.uproject`: 项目文件
+## Current Focus
 
-## 设置
+- UE5.8 source-built project.
+- DX12 / SM6 desktop rendering configuration.
+- Runtime plugin: `GPUDrivenPipeline`.
+- First working compute shader dispatch path.
+- Next milestone: validation scene, benchmark baseline, GPU-visible instance data, and indirect draw MVP.
 
-1. 确保已安装Unreal Engine 5.8源码版
-2. 克隆此仓库
-3. 右键点击`pro.uproject`，选择"Generate Visual Studio project files"
-4. 用Visual Studio打开生成的`.sln`文件
+## Project Structure
 
-## 构建
+- `Config/`: Unreal project configuration.
+- `Content/`: Editor-created assets.
+- `Plugins/GPUDrivenPipeline/`: GPU-driven rendering prototype plugin.
+- `Source/pro/`: Minimal main game module.
+- `docs/`: Active project documentation and development plans.
+- `pro.uproject`: Unreal project descriptor.
 
-使用Visual Studio或Unreal Editor构建项目。
+## Documentation
 
-## 注意事项
+Start with [docs/index.md](docs/index.md).
 
-- `Binaries/`、`Intermediate/`、`DerivedDataCache/`和`Saved/`目录已被.gitignore排除
-- 大型资源文件（如`.uasset`、`.umap`）未包含在版本控制中
-- 如需管理大型资源，请考虑使用Git LFS
+All future development plans should be created under `docs/` using:
+
+```text
+plan-YYYY-MM-DD-topic.md
+```
+
+Example:
+
+```text
+plan-2026-06-10-indirect-draw-mvp.md
+```
+
+## Setup Notes
+
+1. Use the UE5.8 source-built engine configured for this project.
+2. Generate Visual Studio project files from `pro.uproject`.
+3. Build the `Development Editor | Win64` target.
+4. Open the project in the Unreal Editor.
+
+Generated directories such as `Binaries/`, `Intermediate/`, `Saved/`, and `DerivedDataCache/` should remain out of version control.
