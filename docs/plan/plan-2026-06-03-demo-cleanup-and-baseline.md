@@ -10,11 +10,15 @@ The first GPU pass demo is working:
 - PIE shows the expected gradient output.
 - Output Log confirms `SimpleComputeShader` dispatch.
 
-The demo is functional but still has prototype cleanup work:
+The demo cleanup has been completed through the UE Editor:
 
-- The material folder is currently named `Martirals` instead of `Materials`.
-- The map asset is currently named `testMap.umap` instead of a project-style level name.
-- The screen message can repeat heavily during PIE.
+- `Content/GPUDrivenDemo/Martirals` has been renamed to `Content/GPUDrivenDemo/Materials`.
+- `Content/GPUDrivenDemo/Maps/testMap.umap` has been renamed to `Content/GPUDrivenDemo/Maps/L_GPUComputePassDemo.umap`.
+- Git now sees the old assets as deleted and the renamed assets as new files, which is expected after UE asset renaming.
+
+Remaining prototype cleanup work:
+
+- The screen message can repeat heavily during PIE if the Blueprint still prints too often.
 - No baseline performance report has been recorded yet.
 
 ## Objective
@@ -27,12 +31,14 @@ Turn the working GPU pass prototype into a clean, repeatable validation demo and
 - The demo level opens directly and contains one intentional `BP_GPUComputePassDemo` instance.
 - PIE shows the gradient without GPU crash or repeated message spam.
 - Output Log still records the compute dispatch.
-- A baseline report exists under `docs/`.
-- A learning log explains the concepts used in this cleanup stage.
+- A baseline report exists under `docs/`. Completed: `docs/report-2026-06-03-compute-pass-baseline.md`.
+- A learning log explains the concepts used in this cleanup stage. Completed: `docs/learning/2026-06-03-2007-compute-pass-baseline.md`.
 
 ## Phase 1: Asset Cleanup In UE Editor
 
-User operations:
+Status: completed.
+
+Completed user operations:
 
 - Rename `Content/GPUDrivenDemo/Martirals` to `Content/GPUDrivenDemo/Materials` using the UE Content Browser.
 - Rename `Content/GPUDrivenDemo/Maps/testMap.umap` to `Content/GPUDrivenDemo/Maps/L_GPUComputePassDemo` using the UE Content Browser.
@@ -48,6 +54,12 @@ Assistant responsibilities:
 - Do not rename `.uasset` or `.umap` files directly through the filesystem.
 - Update documentation paths after the UE Editor rename is complete.
 - Check Git status after the user completes the asset cleanup.
+
+Result:
+
+- Git status confirms `L_GPUComputePassDemo.umap` and `Materials/M_GPUComputeOutput.uasset` exist.
+- Git status confirms the old `testMap.umap` and `Martirals/M_GPUComputeOutput.uasset` paths are deleted.
+- `pro.uproject` changed only in `EngineAssociation`.
 
 ## Phase 2: Reduce Demo Message Noise
 
@@ -68,6 +80,8 @@ Assistant responsibilities:
 - If C++ helper changes are needed, make them in the plugin and then notify the user to compile.
 
 ## Phase 3: Baseline Capture
+
+Status: completed.
 
 User operations in PIE:
 
@@ -95,7 +109,15 @@ Assistant responsibilities:
 - Create `docs/report-2026-06-03-compute-pass-baseline.md` from the captured values.
 - Explain which numbers are useful now and which are only rough editor-mode references.
 
+Result:
+
+- Baseline report created at `docs/report-2026-06-03-compute-pass-baseline.md`.
+- Dispatch log confirms `1024 x 1024` output, `128 x 128 x 1` groups, and `0.004 ms` CPU-side dispatch timing.
+- `stat unit`, `stat gpu`, and `stat scenerendering` values have been recorded.
+
 ## Phase 4: Learning Log
+
+Status: completed.
 
 Create a learning log under:
 

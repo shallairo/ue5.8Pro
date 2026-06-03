@@ -49,6 +49,7 @@ Avoid spaces, underscores, mixed casing, and vague names such as `Next_Phase` or
 ## Active Documents
 
 - [plan/plan-2026-06-03-gpu-driven-execution.md](plan/plan-2026-06-03-gpu-driven-execution.md): Current GPU-driven rendering execution plan.
+- [plan/plan-2026-06-03-gpu-instance-data-path.md](plan/plan-2026-06-03-gpu-instance-data-path.md): 下一阶段 GPU 实例数据路径开发计划。
 - [guide-gpu-pass-demo-v1.md](guide-gpu-pass-demo-v1.md): Step-by-step setup for the first visible GPU pass demo.
 - [test-compute-shader-validation.md](test-compute-shader-validation.md): Manual validation flow for the compute shader pass.
 - [guide-mcp-configuration.md](guide-mcp-configuration.md): Unreal MCP setup guide.

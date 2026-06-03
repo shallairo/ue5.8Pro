@@ -16,6 +16,11 @@ Example:
 2026-06-03-1705-gpu-pass-demo-uav-crash.md
 ```
 
+## Entries
+
+- [2026-06-03-1705-gpu-pass-demo-uav-crash.md](2026-06-03-1705-gpu-pass-demo-uav-crash.md)
+- [2026-06-03-2007-compute-pass-baseline.md](2026-06-03-2007-compute-pass-baseline.md)
+
 ## Purpose
 
 Each learning log should summarize:
