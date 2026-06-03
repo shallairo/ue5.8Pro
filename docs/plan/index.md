@@ -18,3 +18,4 @@ Examples:
 ## Current Plans
 
 - [plan-2026-06-03-gpu-driven-execution.md](plan-2026-06-03-gpu-driven-execution.md)
+- [plan-2026-06-03-demo-cleanup-and-baseline.md](plan-2026-06-03-demo-cleanup-and-baseline.md)
