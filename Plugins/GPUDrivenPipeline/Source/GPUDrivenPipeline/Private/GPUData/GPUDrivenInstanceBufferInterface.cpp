@@ -24,6 +24,8 @@ namespace
 
     TArray<FGPUDrivenInstanceData> GenerateTestInstances(int32 InstanceCount)
     {
+
+        //1.生成测试数据（CPU 数组）
         TArray<FGPUDrivenInstanceData> Instances;
         Instances.Reserve(InstanceCount);
 
@@ -64,7 +66,17 @@ namespace
             ReadbackToResolve = GValidationReadback;
         }
 
-        ENQUEUE_RENDER_COMMAND(GPUDrivenPipeline_ResolveInstanceValidationReadback)(
+        struct TSTR_GPUDrivenPipeline_ResolveInstanceValidationReadback67 {
+            static const char* CStr() {
+                return "GPUDrivenPipeline_ResolveInstanceValidationReadback";
+            } static const TCHAR* TStr() {
+                return L"GPUDrivenPipeline_ResolveInstanceValidationReadback";
+            } static constexpr ERenderCommandCategory GetCategory() {
+                return  ERenderCommandCategory::Unknown;
+            }
+        }; 
+        using FRenderCommandTag_GPUDrivenPipeline_ResolveInstanceValidationReadback67 = TRenderCommandTag<TSTR_GPUDrivenPipeline_ResolveInstanceValidationReadback67>; 
+        FRenderCommandDispatcher::Enqueue<FRenderCommandTag_GPUDrivenPipeline_ResolveInstanceValidationReadback67>(
             [ReadbackToResolve](FRHICommandListImmediate&)
             {
                 uint32 Summary[ValidationSummaryElementCount] = {};
@@ -91,6 +103,7 @@ namespace
             });
 
         // This validation helper is intentionally synchronous at readback time so Blueprint can get a stable result.
+        //强行让 CPU 等待 GPU 把手里所有积压的工作干完，再执行下一步
         FlushRenderingCommands();
     }
 }
@@ -116,6 +129,8 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
 
     {
         FScopeLock Lock(&GValidationMutex);
+
+        //2.清空上次的 readback 结果
         GValidationReadback.Reset();
         bValidationReadbackReady = false;
         GValidationResult = FGPUDrivenInstanceValidationResult();
@@ -123,13 +138,30 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
         GValidationResult.BufferSizeBytes = BufferSizeBytes;
     }
 
-    ENQUEUE_RENDER_COMMAND(GPUDrivenPipeline_UploadTestInstanceData)(
+
+    //3.ENQUEUE_RENDER_COMMAND 的宏展开这个宏本质上做了两件事。1. 给命令起个名字（用于调试和性能分析）2. 把 lambda 包装成一个渲染命令对象，放进渲染线程的命令队列
+    //FRHICommandListImmediate它封装了所有发给 GPU 的命令。你通过它来：
+    //-创建资源（Buffer、Texture）
+    //  - 设置状态（资源转换）
+    //  - 提交工作（Dispatch、Draw）
+    struct TSTR_GPUDrivenPipeline_UploadTestInstanceData126 {
+        static const char* CStr() {
+            return "GPUDrivenPipeline_UploadTestInstanceData";
+        } static const TCHAR* TStr() {
+            return L"GPUDrivenPipeline_UploadTestInstanceData";
+        } static constexpr ERenderCommandCategory GetCategory() {
+            return  ERenderCommandCategory::Unknown;
+        }
+    }; using FRenderCommandTag_GPUDrivenPipeline_UploadTestInstanceData126 = TRenderCommandTag<TSTR_GPUDrivenPipeline_UploadTestInstanceData126>; 
+    FRenderCommandDispatcher::Enqueue<FRenderCommandTag_GPUDrivenPipeline_UploadTestInstanceData126>(
         [Instances = MoveTemp(Instances), InstanceCount, BufferSizeBytes](FRHICommandListImmediate& RHICmdList)
         {
             const EBufferUsageFlags InstanceBufferUsage =
                 EBufferUsageFlags::StructuredBuffer |
                 EBufferUsageFlags::ShaderResource;
 
+
+            //4. 创建 GPU Buffer（从 CPU 数组上传到显存）
             FBufferRHIRef InstanceBuffer = UE::RHIResourceUtils::CreateBufferFromArray<FGPUDrivenInstanceData>(
                 RHICmdList,
                 TEXT("GPUDrivenPipeline.InstanceData"),
@@ -143,6 +175,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 return;
             }
 
+            //5. 创建 SRV（让 shader 能读取）
             FShaderResourceViewRHIRef InstanceDataSRV = RHICmdList.CreateShaderResourceView(
                 InstanceBuffer,
                 FRHIViewDesc::CreateBufferSRV().SetTypeFromBuffer(InstanceBuffer));
@@ -154,6 +187,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 EBufferUsageFlags::UnorderedAccess |
                 EBufferUsageFlags::SourceCopy;
 
+            //6. 创建 Summary Buffer + UAV（让 shader 能写入结果）
             FBufferRHIRef SummaryBuffer = UE::RHIResourceUtils::CreateBufferFromArray<uint32>(
                 RHICmdList,
                 TEXT("GPUDrivenPipeline.InstanceValidationSummary"),
@@ -177,6 +211,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 return;
             }
 
+            //7. 绑定参数 
             FInstanceDataValidationShader::FParameters PassParameters;
             PassParameters.InstanceData = InstanceDataSRV;
             PassParameters.OutSummary = SummaryUAV;
@@ -188,11 +223,14 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 1,
                 1);
 
+
             const double StartTime = FPlatformTime::Seconds();
+            //8. Dispatch compute shader
             FComputeShaderUtils::Dispatch(RHICmdList, ComputeShader, PassParameters, GroupCount);
             const double EndTime = FPlatformTime::Seconds();
             const float DispatchTimeMs = static_cast<float>((EndTime - StartTime) * 1000.0);
 
+            //9. 资源状态转换 + 发起 readback
             RHICmdList.Transition(FRHITransitionInfo(SummaryBuffer, ERHIAccess::UAVCompute, ERHIAccess::CopySrc));
 
             TSharedPtr<FRHIGPUBufferReadback, ESPMode::ThreadSafe> Readback =
