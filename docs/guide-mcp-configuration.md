@@ -1,53 +1,53 @@
-# MCP Configuration Guide
+# MCP 配置指南
 
-## Purpose
+## 目标
 
-Configure Unreal Engine's Model Context Protocol support so an AI assistant can connect to the UE5.8 Editor.
+配置 UE5.8 的 Model Context Protocol 支持，让 AI 工具可以连接 Unreal Editor。
 
-## Current Project State
+## 当前项目状态
 
-`pro.uproject` enables:
+`pro.uproject` 中已启用：
 
 - `ModelContextProtocol`
 - `MCPClientToolset`
 
-## Start The MCP Server
+## 启动 MCP Server
 
-1. Open the project in UE5.8 Editor.
-2. Open `Window > Developer Tools > Output Log`.
-3. Run:
+1. 打开 UE5.8 Editor。
+2. 打开 `Window > Developer Tools > Output Log`。
+3. 在控制台输入：
 
 ```text
 ModelContextProtocol.StartServer
 ```
 
-To use a custom port:
+如需指定端口：
 
 ```text
 ModelContextProtocol.StartServer 8000
 ```
 
-The default endpoint is usually:
+默认地址通常是：
 
 ```text
 http://localhost:8000/mcp
 ```
 
-To stop the server:
+停止服务：
 
 ```text
 ModelContextProtocol.StopServer
 ```
 
-## Client Configuration
+## 客户端配置
 
-For CodeBuddy, create or update:
+CodeBuddy 配置文件位置：
 
 ```text
 ~/.codebuddy/.mcp.json
 ```
 
-Use:
+示例：
 
 ```json
 {
@@ -61,15 +61,15 @@ Use:
 }
 ```
 
-Restart the AI client after changing this file.
+修改配置后需要重启客户端。
 
-## Verification
+## 验证方式
 
-Ask the client to perform a small editor action, such as listing available UE tools or taking a viewport screenshot.
+让客户端执行一个很小的编辑器操作，例如列出 UE 工具、截取视口截图，或读取当前关卡信息。
 
-If the connection fails:
+如果连接失败：
 
-- Confirm the server is running in Output Log.
-- Confirm the URL and port match the client configuration.
-- Confirm firewall rules are not blocking localhost traffic.
-- Restart the editor after enabling MCP plugins.
+- 确认 UE Output Log 里 server 已启动。
+- 确认端口和 URL 一致。
+- 确认本机防火墙没有阻止 localhost。
+- 确认 MCP 插件启用后已经重启 Editor。

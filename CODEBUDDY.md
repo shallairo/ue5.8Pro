@@ -1,116 +1,123 @@
 # CODEBUDDY.md
 
-This file provides project guidance for AI coding assistants working in this repository.
+本文件用于约束 AI 编程助手在本仓库中的协作方式。
 
-## Project Overview
+## 项目概览
 
-This is a UE5.8 source-built C++ project focused on a GPU-driven rendering prototype.
+这是一个 UE5.8 源码版 C++ 项目，目标是逐步实现 GPU-driven rendering 原型。
 
-The main game module is intentionally minimal. Most active development is in:
+主游戏模块 `Source/pro/` 保持最小骨架。当前所有主要开发都集中在：
 
 ```text
 Plugins/GPUDrivenPipeline/
 ```
 
-## Current Architecture
+## 当前架构
 
-- `Source/pro/`: Minimal primary game module.
-- `Plugins/GPUDrivenPipeline/`: Runtime plugin for GPU rendering experiments.
-- `Plugins/GPUDrivenPipeline/Shaders/`: Plugin shader source directory.
-- `docs/`: Active documentation, plans, tests, and guides.
+- `Source/pro/`：最小主游戏模块。
+- `Plugins/GPUDrivenPipeline/`：GPU-driven 渲染实验插件。
+- `Plugins/GPUDrivenPipeline/Shaders/`：插件 shader 源文件目录。
+- `docs/`：中文文档、计划、测试流程和学习日志。
 
-The current plugin already contains:
+当前插件已经具备：
 
-- Shader directory mapping during module startup.
-- `SimpleComputeShader.usf`.
-- A blueprint-callable compute shader interface.
-- Render-thread dispatch into a UAV-capable render target.
+- 插件启动时注册 shader 目录映射。
+- `SimpleComputeShader.usf` 渐变输出 shader。
+- 蓝图可调用的 compute shader 接口。
+- 渲染线程 dispatch 到 UAV RenderTarget 的路径。
+- GPU 实例数据 structured buffer 验证路径。
 
-## Build System
+## 编译规则
 
-Primary build system: Unreal Build Tool.
+主要构建系统是 Unreal Build Tool。
 
-Targets:
+目标：
 
-- `Source/pro.Target.cs`: Game runtime target.
-- `Source/proEditor.Target.cs`: Editor target.
+- `Source/pro.Target.cs`：Game target。
+- `Source/proEditor.Target.cs`：Editor target。
 
-Main module dependencies:
+如果任务需要编译，助手只通知用户，由用户手动编译。助手不直接执行编译命令。
 
-```csharp
-PublicDependencyModuleNames.AddRange(new string[] {
-    "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput"
-});
+## 渲染配置
+
+项目面向桌面端渲染实验：
+
+- Windows DX12。
+- SM6 shader target。
+- Lumen GI 和 Lumen reflections。
+- Ray tracing。
+- Virtual shadow maps。
+- Substrate。
+
+## 文档规则
+
+所有项目文档必须使用中文，包括计划、指南、测试、报告、索引和学习日志。
+
+文档入口：
+
+```text
+docs/index.md
 ```
 
-Plugin dependencies include rendering modules such as `Renderer`, `RenderCore`, `RHI`, and `RHICore`.
-
-## Rendering Configuration
-
-The project is configured for desktop rendering experiments:
-
-- DX12 on Windows.
-- SM6 shader target.
-- Lumen GI and reflections.
-- Ray tracing enabled.
-- Virtual shadow maps enabled.
-- Substrate enabled.
-
-## Documentation Rules
-
-Use `docs/index.md` as the documentation entry point.
-
-Future development plans must live under:
+开发计划必须放在：
 
 ```text
 docs/plan/
 ```
 
-Plan naming rule:
+计划命名规则：
 
 ```text
 docs/plan/plan-YYYY-MM-DD-topic.md
 ```
 
-Learning log location:
+学习日志必须放在：
 
 ```text
 docs/learning/
 ```
 
-Learning log naming rule:
+学习日志命名规则：
 
 ```text
 docs/learning/YYYY-MM-DD-HHMM-topic.md
 ```
 
-Use:
+其他文档命名：
 
-- `guide-topic.md` for setup and operation guides.
-- `test-topic.md` for repeatable validation procedures.
-- `report-YYYY-MM-DD-topic.md` for measured results.
-- `note-topic.md` for lightweight technical notes.
-- `archive-topic.md` for inactive historical material.
+- `guide-topic.md`：配置和操作指南。
+- `test-topic.md`：可重复执行的测试流程。
+- `report-YYYY-MM-DD-topic.md`：测试结果和阶段总结。
+- `note-topic.md`：轻量技术笔记。
+- `archive-topic.md`：历史或非当前主线材料。
 
-Keep documents concise and aligned with the current repository state.
+禁止把新的开发计划直接放在 `docs/` 根目录，必须放入 `docs/plan/`。
 
-Every completed development task should also produce a short teaching-oriented explanation for the user, covering:
+## 教学规则
 
-- what changed,
-- why it changed,
-- the key engine, rendering, or code concepts involved,
-- the most important debugging or implementation pitfalls.
+助手不仅是开发者，也要作为教学者协作。
 
-When the task produces meaningful learning value, add a learning log under `docs/learning/` using the naming rule above. The title should encode time plus topic so the logs remain chronological and easy to scan.
+每次完成有意义的开发任务后，都要向用户解释：
 
-Do not put active development plans at the root of `docs/`; place them under `docs/plan/`.
+- 改了什么。
+- 为什么这样改。
+- 涉及哪些 UE、RHI、shader 或渲染概念。
+- 哪些地方最容易踩坑。
 
-## Development Notes
+当任务有学习价值时，必须在 `docs/learning/` 下新增或更新学习日志。
 
-- Do not treat old planning text as truth if it conflicts with current code.
-- Prefer small, verifiable GPU rendering milestones.
-- For timing, distinguish CPU dispatch timing from real GPU elapsed time.
-- Avoid committing generated directories such as `Binaries/`, `Intermediate/`, `Saved/`, and `DerivedDataCache/`.
-- When a task finishes, act as both implementer and teacher: explain the core knowledge in plain language instead of stopping at code delivery.
-- If a task requires compilation, notify the user and let the user perform the compile step.
-- Do not modify `pcgDoc/` unless the user explicitly asks for it.
+学习日志不能只写泛泛概念，必须结合源码讲解。至少应包含：
+
+- 相关源码文件。
+- 核心结构体、函数、变量或 shader 代码。
+- 代码和知识点之间的关系。
+- 后续开发时应该记住的结论。
+
+## 开发注意事项
+
+- 不要把旧计划当成事实，如果旧文档和当前代码冲突，以当前代码为准并更新文档。
+- 优先推进小而可验证的 GPU 渲染里程碑。
+- 区分 CPU dispatch timing 和真实 GPU elapsed time。
+- 不提交 `Binaries/`、`Intermediate/`、`Saved/`、`DerivedDataCache/` 等生成目录。
+- 不修改 `pcgDoc/`，除非用户明确要求。
+- 修改 UE `.uasset` 或 `.umap` 路径时，优先指导用户在 UE 编辑器中操作，不直接通过文件系统硬改。

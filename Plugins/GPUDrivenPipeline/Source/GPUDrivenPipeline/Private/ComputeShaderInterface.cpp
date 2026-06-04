@@ -56,9 +56,11 @@ void UComputeShaderInterface::ExecuteSimpleComputeShader(UTextureRenderTarget2D*
         return;
     }
 
+    //ENQUEUE_RENDER_COMMAND 的宏展开这个宏本质上做了两件事。1. 给命令起个名字（用于调试和性能分析）2. 把 lambda 包装成一个渲染命令对象，放进渲染线程的命令队列
     ENQUEUE_RENDER_COMMAND(GPUDrivenPipeline_ExecuteSimpleComputeShader)(
         [RenderTargetResource, TextureSize, RenderTargetName = OutputRenderTarget->GetFName()](FRHICommandListImmediate& RHICmdList)
         {
+            //// 这里的代码在渲染线程执行！
             const FTextureRHIRef RenderTargetTexture = RenderTargetResource->GetRenderTargetTexture();
             if (!RenderTargetTexture.IsValid())
             {
@@ -86,6 +88,7 @@ void UComputeShaderInterface::ExecuteSimpleComputeShader(UTextureRenderTarget2D*
                 FMath::DivideAndRoundUp(TextureSize.Y, 8),
                 1);
 
+            //资源状态转换，从SRVMask（只读不写，即采样），由UAV（compute shader可以写入）
             RHICmdList.Transition(FRHITransitionInfo(RenderTargetTexture, ERHIAccess::SRVMask, ERHIAccess::UAVCompute));
 
             const double StartTime = FPlatformTime::Seconds();
