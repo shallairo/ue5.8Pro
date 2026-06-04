@@ -88,7 +88,16 @@ Plugins/GPUDrivenPipeline/
 - Route uses the `[numthreads(8, 8, 1)]` compute shader model with `RWTexture2D<float4>` UAV output
 - Thread group dimensions are set both in the `.usf` `[numthreads]` attribute and as compile-time defines in `ModifyCompilationEnvironment`
 
+## Language Convention
+
+- **文档和开发计划：** 所有 `docs/` 下的文档（包括 `docs/plan/` 计划和 `docs/learning/` 学习笔记）必须使用**中文**撰写。
+- **代码注释：** 所有 `.h`、`.cpp`、`.usf`、`.cs` 等源代码文件中的注释必须使用**英文**。
+- **CLAUDE.md 和 README.md：** 使用英文（项目级技术文档，面向工具和协作者）。
+
 ## Documentation Conventions
+
+- `docs/plan/` — 后续开发计划，中文撰写，命名规则见下表。
+- `docs/learning/` — 每次代码开发后的知识点和难点讲解，中文撰写，命名规则见下表。
 
 Entry point: `docs/index.md`. Follow these naming rules:
 
