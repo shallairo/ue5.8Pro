@@ -41,4 +41,20 @@ YYYY-MM-DD-HHMM-topic.md
 
 内容：
 
-结合 `FGPUDrivenInstanceData`、structured buffer、`InstanceDataValidation.usf` 和 readback 讲解“CPU 上传实例数据，GPU 读取并验证”的完整路径。
+结合 `FGPUDrivenInstanceData`、structured buffer、`InstanceDataValidation.usf` 和 readback 讲解"CPU 上传实例数据，GPU 读取并验证"的完整路径。
+
+### 4. UE CPU-GPU 交互：RHI 层与渲染线程
+
+- [2026-06-04-1200-ue-cpu-gpu-interaction-rhi-and-render-thread.md](/D:/UGit/ue5.8Pro/docs/learning/2026-06-04-1200-ue-cpu-gpu-interaction-rhi-and-render-thread.md)
+
+内容：
+
+结合项目源码讲解 UE 的三层架构：游戏线程、渲染线程和 RHI 层。覆盖 ENQUEUE_RENDER_COMMAND、资源状态转换、SRV/UAV、Readback 等核心概念。
+
+### 5. FRHICommandListImmediate 与 FlushRenderingCommands 源码详解
+
+- [2026-06-04-1215-rhi-command-list-and-flush-rendering-commands.md](/D:/UGit/ue5.8Pro/docs/learning/2026-06-04-1215-rhi-command-list-and-flush-rendering-commands.md)
+
+内容：
+
+深入引擎源码讲解 FRHICommandListImmediate 的类继承、命令存储机制、Submit 流程，以及 FlushRenderingCommands 的实现原理和同步机制。

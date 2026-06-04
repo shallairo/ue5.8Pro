@@ -15,6 +15,7 @@ plan-YYYY-MM-DD-topic.md
 - `plan-2026-06-03-gpu-driven-execution.md`
 - `plan-2026-06-03-demo-cleanup-and-baseline.md`
 - `plan-2026-06-03-gpu-instance-data-path.md`
+- `plan-2026-06-04-indirect-draw-mvp.md`
 
 ## 当前计划
 
@@ -42,10 +43,14 @@ plan-YYYY-MM-DD-topic.md
 
 本阶段已经完成，当前文档同时承担计划记录和完成总结的作用。
 
+### 4. Indirect Draw MVP
+
+- [plan-2026-06-04-indirect-draw-mvp.md](/D:/UGit/ue5.8Pro/docs/plan/plan-2026-06-04-indirect-draw-mvp.md)
+
+说明：
+
+下一阶段计划：用 GPU 写出的 indirect args 驱动一次最小可见实例绘制。
+
 ## 下一步建议
 
-当后续准备进入绘制阶段时，新计划建议命名为：
-
-```text
-plan-YYYY-MM-DD-indirect-draw-mvp.md
-```
+优先执行 `Indirect Draw MVP`，先验证最小可见 indirect draw，再进入 GPU culling 或 StaticMesh 渲染路径接入。
