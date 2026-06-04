@@ -1,108 +1,105 @@
-# GPU-Driven Execution Plan
+# GPU-Driven 渲染执行计划
 
-## Current State
+## 当前状态
 
-The project is a UE5.8 source-built C++ project focused on a `GPUDrivenPipeline` runtime plugin.
+项目是 UE5.8 源码版 C++ 项目，核心开发集中在 `GPUDrivenPipeline` 运行时插件。
 
-The main `pro` game module is still minimal. The active rendering work lives in the plugin:
+当前已经完成：
 
-- Shader directory mapping is registered during plugin startup.
-- `SimpleComputeShader.usf` exists under the plugin shader directory.
-- `UComputeShaderInterface::ExecuteSimpleComputeShader()` dispatches a real compute pass on the render thread.
-- The compute pass writes a red-green UV gradient into a UAV-capable render target.
-- `GetLastExecutionTime()` reports CPU-side dispatch timing, not GPU elapsed time.
+- 插件启动时注册 shader 目录映射。
+- `SimpleComputeShader.usf` 可以写入 UAV RenderTarget。
+- `ExecuteSimpleComputeShader()` 可以从蓝图触发 compute shader。
+- Demo 关卡可以显示渐变输出。
+- 已记录 compute pass baseline。
+- 已开始实现 GPU 实例数据路径。
 
-## Objective
+## 总目标
 
-Move from a working compute shader validation pass to a small GPU-driven rendering prototype with measurable baseline data.
+把项目从“单个 compute shader 写 RenderTarget”推进到“GPU 可以接收、处理并最终驱动实例渲染”。
 
-## Success Criteria
+## 阶段 1：Compute Pass 可视化验证
 
-- The compute shader pass can be triggered repeatedly in Editor or PIE without crashes.
-- The output render target visibly shows the expected gradient.
-- A reusable validation level and assets exist under `Content/`.
-- A baseline benchmark can be captured with `stat unit`, `stat gpu`, and `stat scenerendering`.
-- The plugin contains the first reusable data structures for GPU-visible instance data.
-- The next prototype step toward indirect drawing is clearly implemented or isolated behind a small interface.
+状态：已完成。
 
-## Phase 1: Compute Pass Validation
+目标：
 
-Tasks:
+- 蓝图能触发 compute shader。
+- shader 能写入 `RT_GPUComputeOutput`。
+- 材质能显示 RenderTarget。
+- PIE 中可见稳定渐变。
 
-- Create a dedicated validation level.
-- Create a render target with UAV support.
-- Create a material that samples the render target.
-- Create a blueprint actor that calls `ExecuteSimpleComputeShader()`.
-- Record expected visual output and basic log behavior.
+产物：
 
-Deliverables:
+- `Content/GPUDrivenDemo/Maps/L_GPUComputePassDemo`
+- `RT_GPUComputeOutput`
+- `M_GPUComputeOutput`
+- `BP_GPUComputePassDemo`
 
-- `Content/Maps/TestLevel_ComputeShader`
-- `RT_ComputeShaderOutput`
-- `M_ComputeShaderTest`
-- `BP_ComputeShaderTest`
-- A short validation result report once tested.
+## 阶段 2：Demo 清理和基线采集
 
-## Phase 2: Benchmark Baseline
+状态：已完成。
 
-Tasks:
+目标：
 
-- Define repeatable test settings: resolution, RHI, editor/PIE mode, scalability level, and GPU model.
-- Measure empty scene baseline.
-- Measure compute pass scene baseline.
-- Record CPU frame time, GPU frame time, draw calls, and dispatch log timing.
+- 修正资产命名。
+- 移除或减少屏幕刷屏消息。
+- 记录 `stat unit`、`stat gpu`、`stat scenerendering`。
+- 形成第一份 baseline report。
 
-Deliverable:
+产物：
 
-- `report-YYYY-MM-DD-compute-pass-baseline.md`
+- `docs/report-2026-06-03-compute-pass-baseline.md`
+- `docs/learning/2026-06-03-2007-compute-pass-baseline.md`
 
-## Phase 3: GPU Data Path
+## 阶段 3：GPU 实例数据路径
 
-Tasks:
+状态：进行中。
 
-- Define instance metadata needed for the first rendering MVP.
-- Add structured buffer creation and lifetime handling.
-- Add a small CPU-to-GPU upload path.
-- Keep the data path independent from the current gradient pass where practical.
+目标：
 
-Initial data candidates:
+- 定义实例数据结构。
+- 在 CPU 侧生成测试实例数据。
+- 上传到 GPU structured buffer。
+- 使用 compute shader 读取实例数据。
+- 通过 summary buffer 和 readback 验证结果。
 
-- World transform or compact transform representation.
-- Bounds center and radius.
-- Instance visibility flag.
-- Draw or mesh identifier.
+当前计划：
 
-## Phase 4: Indirect Draw MVP
+- [plan-2026-06-03-gpu-instance-data-path.md](plan-2026-06-03-gpu-instance-data-path.md)
 
-Tasks:
+## 阶段 4：Indirect Draw MVP
 
-- Prepare indirect draw arguments.
-- Connect visible instance count or draw metadata to the rendering path.
-- Render a simple repeated mesh scene.
-- Compare CPU cost with the non-indirect baseline.
+状态：未开始。
 
-Non-goals for the first MVP:
+进入条件：
 
-- Full Hi-Z occlusion culling.
-- Full GPU LOD selection.
-- Production-quality renderer integration.
-- Final art scene polish.
+- GPU 实例数据结构稳定。
+- structured buffer 上传路径可用。
+- compute shader 可以验证读取结果。
+- 有明确测试文档和学习日志。
 
-## Documentation Rules For Future Plans
+目标：
 
-Every new development plan must be created under `docs/plan/` using:
+- 准备 indirect draw arguments。
+- 构建最小 indirect draw 路径。
+- 渲染一批简单实例。
+- 与 baseline 做对比。
+
+## 非目标
+
+当前阶段不做：
+
+- 完整 Hi-Z occlusion culling。
+- 完整 GPU LOD selection。
+- 生产级 renderer integration。
+- 大规模美术场景。
+
+## 文档规则
+
+后续计划必须放在 `docs/plan/`，并使用中文撰写。
+
+命名规则：
 
 ```text
 plan-YYYY-MM-DD-topic.md
 ```
-
-Each plan should include:
-
-- Current State
-- Objective
-- Success Criteria
-- Tasks
-- Deliverables
-- Non-goals
-
-When a plan becomes obsolete, either update it to match reality or rename it as `archive-topic.md`.

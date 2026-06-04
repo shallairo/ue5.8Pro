@@ -1,0 +1,41 @@
+// InstanceDataValidation.usf
+// Minimal compute shader that proves the GPU can read uploaded instance data.
+
+#include "/Engine/Public/Platform.ush"
+#include "/Engine/Private/Common.ush"
+
+struct FGPUDrivenInstanceData
+{
+    float3 Position;
+    float Radius;
+    float3 Scale;
+    uint Flags;
+};
+
+StructuredBuffer<FGPUDrivenInstanceData> InstanceData;
+RWStructuredBuffer<uint> OutSummary;
+uint InstanceCount;
+
+[numthreads(THREADGROUP_SIZE_X, 1, 1)]
+void MainCS(uint3 ThreadID : SV_DispatchThreadID)
+{
+    const uint InstanceIndex = ThreadID.x;
+    if (InstanceIndex >= InstanceCount)
+    {
+        return;
+    }
+
+    FGPUDrivenInstanceData Instance = InstanceData[InstanceIndex];
+
+    InterlockedAdd(OutSummary[0], 1);
+
+    if (Instance.Radius > 0.0f)
+    {
+        InterlockedAdd(OutSummary[1], 1);
+    }
+
+    InterlockedAdd(OutSummary[2], Instance.Flags);
+
+    const uint QuantizedPositionX = (uint)abs(Instance.Position.x);
+    InterlockedAdd(OutSummary[3], QuantizedPositionX);
+}

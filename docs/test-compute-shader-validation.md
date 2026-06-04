@@ -1,81 +1,58 @@
-# Compute Shader Validation Test
+# Compute Shader 渐变输出测试
 
-## Purpose
+## 目标
 
-Validate that the `GPUDrivenPipeline` plugin can dispatch `SimpleComputeShader.usf` and write a visible gradient into a render target.
+验证 `GPUDrivenPipeline` 插件可以调度 `SimpleComputeShader.usf`，并把结果写入 `RT_GPUComputeOutput`。
 
-## Requirements
+## 前置条件
 
-- UE5.8 Editor.
-- `GPUDrivenPipeline` plugin enabled in `pro.uproject`.
-- Project running with a shader model that supports SM5 or higher.
-- A GPU/RHI configuration that supports UAV writes to render targets.
-- The render target asset must be created with UAV support enabled.
+- UE5.8 Editor。
+- `GPUDrivenPipeline` 插件已启用。
+- `RT_GPUComputeOutput` 已启用 UAV 支持。
+- `M_GPUComputeOutput` 正确采样 `RT_GPUComputeOutput`。
+- `BP_GPUComputePassDemo` 在 `BeginPlay` 调用 `Execute Simple Compute Shader`。
 
-## Test Assets
+## 测试步骤
 
-Create these assets if they do not already exist:
+1. 打开 `L_GPUComputePassDemo`。
+2. 确认关卡中只有一个 `BP_GPUComputePassDemo`。
+3. 点击 Play。
+4. 观察平面材质。
+5. 查看 Output Log。
 
-- Level: `Content/GPUDrivenDemo/Maps/L_GPUComputePassDemo`
-- Render target: `Content/GPUDrivenDemo/Textures/RT_GPUComputeOutput`
-- Material: `Content/GPUDrivenDemo/Materials/M_GPUComputeOutput`
-- Blueprint actor: `Content/GPUDrivenDemo/Blueprints/BP_GPUComputePassDemo`
+## 预期结果
 
-## Setup
+平面上应显示稳定渐变：
 
-1. Create an empty level and save it as `L_GPUComputePassDemo`.
-2. Create a `TextureRenderTarget2D` named `RT_GPUComputeOutput`.
-3. Set the render target size to `1024 x 1024`.
-4. Enable UAV support on the render target asset.
-5. Create `M_GPUComputeOutput`.
-6. Set the material Shading Model to `Unlit`.
-7. Add a texture sample using `RT_GPUComputeOutput`.
-8. Connect the texture sample RGB output to `Emissive Color`.
-9. Add a plane to the level and apply `M_GPUComputeOutput`.
-10. Create `BP_GPUComputePassDemo` as an Actor blueprint.
-11. On BeginPlay, call `Execute Simple Compute Shader` with `RT_GPUComputeOutput`.
+- 横向红色逐渐增强。
+- 纵向绿色逐渐增强。
+- 蓝色固定在中间值附近。
 
-## Expected Result
-
-When PIE starts, the plane should show a stable gradient:
-
-- Red increases from left to right.
-- Green increases from top to bottom.
-- Blue remains constant around `0.5`.
-
-The Output Log should include a message similar to:
+Output Log 应出现：
 
 ```text
 GPUDrivenPipeline: Dispatched SimpleComputeShader ...
 ```
 
-## Failure Checks
+## 常见问题
 
-Black output:
+画面为黑色：
 
-- Confirm the blueprint event is firing.
-- Confirm the material samples the correct render target.
-- Confirm the render target resource is initialized.
+- 检查蓝图是否执行到 `BeginPlay`。
+- 检查材质是否采样了正确的 RenderTarget。
+- 检查 Plane 是否使用 `M_GPUComputeOutput`。
 
-No dispatch log:
+蓝图节点找不到：
 
-- Confirm the plugin is enabled.
-- Confirm the blueprint node is from `GPUDrivenPipeline`.
-- Rebuild the Editor target if the C++ API is missing.
-- Confirm `RT_GPUComputeOutput` was created with UAV support enabled.
+- 重新编译 Editor target。
+- 重启 UE Editor。
+- 确认插件已启用。
 
-Shader compile failure:
+GPU crash：
 
-- Confirm shader directory mapping is registered.
-- Confirm `SimpleComputeShader.usf` is under `Plugins/GPUDrivenPipeline/Shaders/`.
-- Restart the editor after plugin or shader mapping changes.
+- 优先检查 RenderTarget 是否启用 UAV 支持。
+- 查看 Output Log 中是否有资源状态错误。
 
-## Measurement Notes
+## 学习点
 
-`GetLastExecutionTime()` currently reports CPU-side dispatch timing only. Use Unreal GPU profiling tools for real GPU time:
-
-- `stat unit`
-- `stat gpu`
-- RenderDoc
-- PIX for Windows
-- Unreal Insights with GPU tracing
+这个测试验证的是从蓝图到 C++，再到渲染线程和 GPU shader 的最短闭环。它证明 compute shader 可以写入一个 UE RenderTarget，但还不涉及实例数据、间接绘制或 GPU culling。

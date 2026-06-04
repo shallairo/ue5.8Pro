@@ -1,116 +1,78 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件用于约束 Claude Code 或其他 AI 编程助手在本仓库中的工作方式。
 
-## Project Overview
+## 项目概览
 
-This is a UE5.8 source-built C++ project for GPU-driven rendering experiments. The main game module (`Source/pro/`) is intentionally minimal. All active development happens in the `GPUDrivenPipeline` runtime plugin at `Plugins/GPUDrivenPipeline/`.
+这是一个 UE5.8 源码版 C++ 项目，目标是逐步构建 GPU-driven rendering 原型。主游戏模块 `Source/pro/` 保持最小状态，主要开发集中在 `Plugins/GPUDrivenPipeline/`。
 
-## Build System
+## 编译约定
 
-**Engine:** UE5.8 source-built, identified by `{6DBFD1DD-4FAE-DEE6-7ED8-2DB9153CD0A2}` in `pro.uproject`.
+如果需要编译，助手只通知用户，由用户执行编译。不要直接运行 UBT 或构建脚本。
 
-**Targets:**
-- `Source/pro.Target.cs` — Runtime game target (`TargetType.Game`)
-- `Source/proEditor.Target.cs` — Editor target (`TargetType.Editor`)
+常用目标：
 
-**Build workflow** (run from the UE source directory, not this project):
+- `proEditor Win64 Development`
+- Visual Studio 中的 `Development Editor | Win64`
 
-```powershell
-# Generate project files
-Engine\Build\BatchFiles\RunUBT.bat -ProjectFiles -Project="<path-to>\pro.uproject"
+## 插件结构
 
-# Build editor target
-Engine\Build\BatchFiles\Build.bat -Project="<path-to>\pro.uproject" proEditor Win64 Development
-```
+核心插件：
 
-Do not invoke builds directly — notify the user when compilation is needed and let them perform it.
-
-**Plugin dependencies** (`GPUDrivenPipeline.Build.cs`): `Core`, `CoreUObject`, `Engine`, `Renderer`, `RenderCore`, `RHI`, `RHICore` (public); `Slate`, `SlateCore`, `Projects` (private).
-
-**Main module dependencies** (`pro.Build.cs`): `Core`, `CoreUObject`, `Engine`, `InputCore`, `EnhancedInput`.
-
-## Rendering Configuration
-
-Targeted for desktop rendering experiments on Windows:
-- **RHI:** DX12 (`DefaultGraphicsRHI_DX12`)
-- **Shader target:** SM6 (`PCD3D_SM6`)
-- **Features:** Lumen GI, Lumen reflections, ray tracing, virtual shadow maps, Substrate enabled
-- **Hardware class:** Desktop / Maximum performance
-
-## Architecture: GPUDrivenPipeline Plugin
-
-The plugin is the core of all GPU-driven rendering work. It loads at `PostConfigInit` so it's available early.
-
-### Directory Layout
-
-```
+```text
 Plugins/GPUDrivenPipeline/
-├── GPUDrivenPipeline.uplugin          # Plugin descriptor (Runtime, PostConfigInit)
-├── Shaders/
-│   └── SimpleComputeShader.usf        # HLSL compute shader source
-└── Source/GPUDrivenPipeline/
-    ├── GPUDrivenPipeline.Build.cs     # Module build rules
-    ├── Public/
-    │   ├── GPUDrivenPipelineModule.h  # IModuleInterface for plugin lifecycle
-    │   ├── SimpleComputeShader.h      # FGlobalShader subclass declaration
-    │   └── ComputeShaderInterface.h   # Blueprint-callable UBlueprintFunctionLibrary
-    └── Private/
-        ├── GPUDrivenPipelineModule.cpp  # Shader directory registration
-        ├── SimpleComputeShader.cpp      # IMPLEMENT_GLOBAL_SHADER
-        └── ComputeShaderInterface.cpp   # Render-thread dispatch logic
 ```
 
-### Key Classes and Data Flow
+重要目录：
 
-1. **`FGPUDrivenPipelineModule`** (`GPUDrivenPipelineModule.h/.cpp`) — Plugin entry point. On startup, registers the `Shaders/` directory via `AddShaderSourceDirectoryMapping` with the virtual path `/Plugin/GPUDrivenPipeline`.
+- `Shaders/`：插件 HLSL / USF shader。
+- `Source/GPUDrivenPipeline/Public/`：公开 C++ 接口。
+- `Source/GPUDrivenPipeline/Private/`：插件实现。
 
-2. **`FSimpleComputeShader`** (`SimpleComputeShader.h/.cpp`) — An `FGlobalShader` subclass that declares:
-   - `SHADER_PARAMETER_UAV(RWTexture2D<float4>, OutputTexture)` — UAV for render target output
-   - `SHADER_PARAMETER(FVector2f, TextureSize)` — texture dimensions
-   - Thread group size: 8×8×1 (set via `THREADGROUP_SIZE_X`/`_Y` compile defines)
-   - Shader file mapped as `/Plugin/GPUDrivenPipeline/SimpleComputeShader.usf`, entry point `MainCS`, type `SF_Compute`
-   - Compiles for SM5+ feature levels only
+当前插件能力：
 
-3. **`UComputeShaderInterface`** (`ComputeShaderInterface.h/.cpp`) — Blueprint-callable API:
-   - `ExecuteSimpleComputeShader(UTextureRenderTarget2D*)` — Validates input (non-null, valid size, UAV support enabled), enqueues a render command that dispatches the compute shader, and records CPU dispatch timing
-   - `GetLastExecutionTime()` — Returns last CPU-side dispatch time in ms (atomic float, thread-safe)
+- 启动时注册 shader 虚拟路径 `/Plugin/GPUDrivenPipeline`。
+- 通过 `SimpleComputeShader.usf` 写入 RenderTarget 渐变。
+- 通过蓝图函数触发 compute shader。
+- 通过 GPU instance data path 验证 structured buffer 上传和读取。
 
-4. **Dispatch flow:**
-   - Game thread validates `UTextureRenderTarget2D` (must have `bSupportsUAV = true`)
-   - `ENQUEUE_RENDER_COMMAND` sends work to render thread
-   - Render thread: acquires RHI UAV, transitions resource (`SRVMask → UAVCompute`), dispatches via `FComputeShaderUtils::Dispatch`, transitions back (`UAVCompute → SRVMask`), logs timing
+## 文档约定
 
-### Shader Development
+所有项目文档必须使用中文。
 
-- **Shader sources** live in `Plugins/GPUDrivenPipeline/Shaders/`
-- **Virtual path** for `IMPLEMENT_GLOBAL_SHADER`: `/Plugin/GPUDrivenPipeline/<shader>.usf`
-- Route uses the `[numthreads(8, 8, 1)]` compute shader model with `RWTexture2D<float4>` UAV output
-- Thread group dimensions are set both in the `.usf` `[numthreads]` attribute and as compile-time defines in `ModifyCompilationEnvironment`
+文档入口：
 
-## Documentation Conventions
+```text
+docs/index.md
+```
 
-Entry point: `docs/index.md`. Follow these naming rules:
+开发计划放在：
 
-| Category | Location | Pattern | Example |
-|----------|----------|---------|---------|
-| Development plans | `docs/plan/` | `plan-YYYY-MM-DD-topic.md` | `plan-2026-06-03-gpu-driven-execution.md` |
-| Learning logs | `docs/learning/` | `YYYY-MM-DD-HHMM-topic.md` | `2026-06-03-1705-gpu-pass-demo-uav-crash.md` |
-| Guides | `docs/` | `guide-topic.md` | `guide-gpu-pass-demo-v1.md` |
-| Test procedures | `docs/` | `test-topic.md` | `test-compute-shader-validation.md` |
-| Results/reports | `docs/` | `report-YYYY-MM-DD-topic.md` | `report-2026-06-03-compute-pass-baseline.md` |
-| Technical notes | `docs/` | `note-topic.md` | — |
-| Archived material | `docs/` | `archive-topic.md` | — |
+```text
+docs/plan/
+```
 
-Use lowercase kebab-case for all document names. Keep docs aligned with current code state — update stale documents promptly.
+学习日志放在：
 
-Every completed task should include a teaching-oriented explanation: what changed, why, key engine/rendering concepts involved, and important debugging pitfalls. When learning value merits it, write a learning log under `docs/learning/`.
+```text
+docs/learning/
+```
 
-## Development Notes
+学习日志必须结合源码讲解，不能只写概念总结。
 
-- Do not treat old planning text as truth if it conflicts with current code.
-- Prefer small, verifiable GPU rendering milestones.
-- Distinguish CPU dispatch timing from GPU elapsed time — the current `GLastExecutionTimeMs` measures CPU dispatch only.
-- Never commit generated directories: `Binaries/`, `Intermediate/`, `Saved/`, `DerivedDataCache/`.
-- Never modify `pcgDoc/` unless explicitly asked.
-- Notify the user when compilation is needed; let them perform the compile step.
+## 协作方式
+
+助手完成开发任务后，需要同时给出教学式总结，说明：
+
+- 本次改动做了什么。
+- 为什么要这么做。
+- 关联了哪些源码文件。
+- 涉及哪些 UE、RHI、shader 或 GPU-driven 概念。
+- 后续最容易踩坑的地方。
+
+## 禁止事项
+
+- 不修改 `pcgDoc/`，除非用户明确要求。
+- 不提交生成目录。
+- 不直接编译项目。
+- 不把英文文档或乱码文档作为最终项目文档保留。
