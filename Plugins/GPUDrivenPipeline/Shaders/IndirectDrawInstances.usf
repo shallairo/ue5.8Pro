@@ -1,0 +1,92 @@
+// IndirectDrawInstances.usf
+// 1. Compute shader writes draw indirect arguments.
+// 2. Vertex/pixel shaders draw one quad per uploaded instance.
+
+#include "/Engine/Public/Platform.ush"
+#include "/Engine/Private/Common.ush"
+
+struct FGPUDrivenInstanceData
+{
+    float3 Position;
+    float Radius;
+    float3 Scale;
+    uint Flags;
+};
+
+RWBuffer<uint> OutIndirectArgs;
+uint InstanceCount;
+
+[numthreads(1, 1, 1)]
+void BuildIndirectArgsCS(uint3 ThreadID : SV_DispatchThreadID)
+{
+    if (ThreadID.x != 0 || ThreadID.y != 0 || ThreadID.z != 0)
+    {
+        return;
+    }
+
+    OutIndirectArgs[0] = 6;
+    OutIndirectArgs[1] = InstanceCount;
+    OutIndirectArgs[2] = 0;
+    OutIndirectArgs[3] = 0;
+}
+
+StructuredBuffer<FGPUDrivenInstanceData> InstanceData;
+float2 RenderTargetSize;
+float2 GridWorldExtent;
+float QuadPixelSize;
+
+struct FVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float4 Color : TEXCOORD0;
+};
+
+float2 GetQuadVertexOffset(uint VertexID)
+{
+    switch (VertexID % 6)
+    {
+    case 0: return float2(-1.0, -1.0);
+    case 1: return float2(-1.0,  1.0);
+    case 2: return float2( 1.0,  1.0);
+    case 3: return float2(-1.0, -1.0);
+    case 4: return float2( 1.0,  1.0);
+    default: return float2( 1.0, -1.0);
+    }
+}
+
+float4 GetInstanceColor(uint Flags)
+{
+    switch (Flags & 3)
+    {
+    case 0: return float4(1.0, 0.2, 0.2, 1.0);
+    case 1: return float4(0.2, 1.0, 0.3, 1.0);
+    case 2: return float4(0.2, 0.5, 1.0, 1.0);
+    default: return float4(1.0, 0.9, 0.2, 1.0);
+    }
+}
+
+FVertexOutput MainVS(uint VertexID : SV_VertexID, uint InstanceID : SV_InstanceID)
+{
+    FVertexOutput Output;
+
+    const FGPUDrivenInstanceData Instance = InstanceData[InstanceID];
+
+    const float2 SafeExtent = max(GridWorldExtent, float2(1.0, 1.0));
+    const float2 Normalized = float2(Instance.Position.x / SafeExtent.x, Instance.Position.y / SafeExtent.y);
+    const float2 Center = float2(Normalized.x * 2.0 - 1.0, 1.0 - Normalized.y * 2.0);
+
+    const float2 QuadHalfSizeNDC = float2(
+        (QuadPixelSize / max(RenderTargetSize.x, 1.0)) * 2.0,
+        (QuadPixelSize / max(RenderTargetSize.y, 1.0)) * 2.0);
+
+    const float2 Offset = GetQuadVertexOffset(VertexID) * QuadHalfSizeNDC;
+
+    Output.Position = float4(Center + Offset, 0.0, 1.0);
+    Output.Color = GetInstanceColor(Instance.Flags);
+    return Output;
+}
+
+float4 MainPS(FVertexOutput Input) : SV_Target0
+{
+    return Input.Color;
+}
