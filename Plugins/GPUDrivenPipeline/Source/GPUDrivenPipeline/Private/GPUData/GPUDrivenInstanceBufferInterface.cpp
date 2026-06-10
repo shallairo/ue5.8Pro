@@ -22,10 +22,10 @@ namespace
     FGPUDrivenInstanceValidationResult GValidationResult;
     bool bValidationReadbackReady = false;
 
-    TArray<FGPUDrivenInstanceData> GenerateTestInstances(int32 InstanceCount)
+    TArray<FGPUDrivenInstanceData> GenerateValidationTestInstances(int32 InstanceCount)
     {
 
-        //1.Éú³É²âÊÔÊý¾Ý£¨CPU Êý×é£©
+        //1.ï¿½ï¿½ï¿½É²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½CPU ï¿½ï¿½ï¿½é£©
         TArray<FGPUDrivenInstanceData> Instances;
         Instances.Reserve(InstanceCount);
 
@@ -103,7 +103,7 @@ namespace
             });
 
         // This validation helper is intentionally synchronous at readback time so Blueprint can get a stable result.
-        //Ç¿ÐÐÈÃ CPU µÈ´ý GPU °ÑÊÖÀïËùÓÐ»ýÑ¹µÄ¹¤×÷¸ÉÍê£¬ÔÙÖ´ÐÐÏÂÒ»²½
+        //Ç¿ï¿½ï¿½ï¿½ï¿½ CPU ï¿½È´ï¿½ GPU ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½Ñ¹ï¿½Ä¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê£¬ï¿½ï¿½Ö´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
         FlushRenderingCommands();
     }
 }
@@ -124,13 +124,13 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
         InstanceCount = MaxTestInstanceCount;
     }
 
-    TArray<FGPUDrivenInstanceData> Instances = GenerateTestInstances(InstanceCount);
+    TArray<FGPUDrivenInstanceData> Instances = GenerateValidationTestInstances(InstanceCount);
     const int32 BufferSizeBytes = Instances.Num() * sizeof(FGPUDrivenInstanceData);
 
     {
         FScopeLock Lock(&GValidationMutex);
 
-        //2.Çå¿ÕÉÏ´ÎµÄ readback ½á¹û
+        //2.ï¿½ï¿½ï¿½ï¿½Ï´Îµï¿½ readback ï¿½ï¿½ï¿½
         GValidationReadback.Reset();
         bValidationReadbackReady = false;
         GValidationResult = FGPUDrivenInstanceValidationResult();
@@ -139,11 +139,11 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
     }
 
 
-    //3.ENQUEUE_RENDER_COMMAND µÄºêÕ¹¿ªÕâ¸öºê±¾ÖÊÉÏ×öÁËÁ½¼þÊÂ¡£1. ¸øÃüÁîÆð¸öÃû×Ö£¨ÓÃÓÚµ÷ÊÔºÍÐÔÄÜ·ÖÎö£©2. °Ñ lambda °ü×°³ÉÒ»¸öäÖÈ¾ÃüÁî¶ÔÏó£¬·Å½øäÖÈ¾Ïß³ÌµÄÃüÁî¶ÓÁÐ
-    //FRHICommandListImmediateËü·â×°ÁËËùÓÐ·¢¸ø GPU µÄÃüÁî¡£ÄãÍ¨¹ýËüÀ´£º
-    //-´´½¨×ÊÔ´£¨Buffer¡¢Texture£©
-    //  - ÉèÖÃ×´Ì¬£¨×ÊÔ´×ª»»£©
-    //  - Ìá½»¹¤×÷£¨Dispatch¡¢Draw£©
+    //3.ENQUEUE_RENDER_COMMAND ï¿½Äºï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê±¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ï¿½1. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö£ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½Ôºï¿½ï¿½ï¿½ï¿½Ü·ï¿½ï¿½ï¿½ï¿½ï¿½2. ï¿½ï¿½ lambda ï¿½ï¿½×°ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ó£¬·Å½ï¿½ï¿½ï¿½È¾ï¿½ß³Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    //FRHICommandListImmediateï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ð·ï¿½ï¿½ï¿½ GPU ï¿½ï¿½ï¿½ï¿½ï¿½î¡£ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    //-ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½Bufferï¿½ï¿½Textureï¿½ï¿½
+    //  - ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ô´×ªï¿½ï¿½ï¿½ï¿½
+    //  - ï¿½á½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Dispatchï¿½ï¿½Drawï¿½ï¿½
     struct TSTR_GPUDrivenPipeline_UploadTestInstanceData126 {
         static const char* CStr() {
             return "GPUDrivenPipeline_UploadTestInstanceData";
@@ -161,7 +161,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 EBufferUsageFlags::ShaderResource;
 
 
-            //4. ´´½¨ GPU Buffer£¨´Ó CPU Êý×éÉÏ´«µ½ÏÔ´æ£©
+            //4. ï¿½ï¿½ï¿½ï¿½ GPU Bufferï¿½ï¿½ï¿½ï¿½ CPU ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ï¿½Ô´æ£©
             FBufferRHIRef InstanceBuffer = UE::RHIResourceUtils::CreateBufferFromArray<FGPUDrivenInstanceData>(
                 RHICmdList,
                 TEXT("GPUDrivenPipeline.InstanceData"),
@@ -175,7 +175,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 return;
             }
 
-            //5. ´´½¨ SRV£¨ÈÃ shader ÄÜ¶ÁÈ¡£©
+            //5. ï¿½ï¿½ï¿½ï¿½ SRVï¿½ï¿½ï¿½ï¿½ shader ï¿½Ü¶ï¿½È¡ï¿½ï¿½
             FShaderResourceViewRHIRef InstanceDataSRV = RHICmdList.CreateShaderResourceView(
                 InstanceBuffer,
                 FRHIViewDesc::CreateBufferSRV().SetTypeFromBuffer(InstanceBuffer));
@@ -187,7 +187,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 EBufferUsageFlags::UnorderedAccess |
                 EBufferUsageFlags::SourceCopy;
 
-            //6. ´´½¨ Summary Buffer + UAV£¨ÈÃ shader ÄÜÐ´Èë½á¹û£©
+            //6. ï¿½ï¿½ï¿½ï¿½ Summary Buffer + UAVï¿½ï¿½ï¿½ï¿½ shader ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             FBufferRHIRef SummaryBuffer = UE::RHIResourceUtils::CreateBufferFromArray<uint32>(
                 RHICmdList,
                 TEXT("GPUDrivenPipeline.InstanceValidationSummary"),
@@ -211,7 +211,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
                 return;
             }
 
-            //7. °ó¶¨²ÎÊý 
+            //7. ï¿½ó¶¨²ï¿½ï¿½ï¿½ 
             FInstanceDataValidationShader::FParameters PassParameters;
             PassParameters.InstanceData = InstanceDataSRV;
             PassParameters.OutSummary = SummaryUAV;
@@ -230,7 +230,7 @@ void UGPUDrivenInstanceBufferInterface::UploadTestInstanceData(int32 InstanceCou
             const double EndTime = FPlatformTime::Seconds();
             const float DispatchTimeMs = static_cast<float>((EndTime - StartTime) * 1000.0);
 
-            //9. ×ÊÔ´×´Ì¬×ª»» + ·¢Æð readback
+            //9. ï¿½ï¿½Ô´×´Ì¬×ªï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ readback
             RHICmdList.Transition(FRHITransitionInfo(SummaryBuffer, ERHIAccess::UAVCompute, ERHIAccess::CopySrc));
 
             TSharedPtr<FRHIGPUBufferReadback, ESPMode::ThreadSafe> Readback =
