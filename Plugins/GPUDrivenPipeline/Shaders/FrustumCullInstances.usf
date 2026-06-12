@@ -1,0 +1,70 @@
+// FrustumCullInstances.usf
+// Minimal MVP shader: serial GPU culling writes a compact visible instance buffer and draw indirect args.
+
+#include "/Engine/Public/Platform.ush"
+#include "/Engine/Private/Common.ush"
+
+struct FGPUDrivenInstanceData
+{
+    float3 Position;
+    float Radius;
+    float3 Scale;
+    uint Flags;
+};
+
+StructuredBuffer<FGPUDrivenInstanceData> InstanceData;
+RWStructuredBuffer<FGPUDrivenInstanceData> OutVisibleInstanceData;
+RWBuffer<uint> OutIndirectArgs;
+
+uint InstanceCount;
+float4 FrustumPlane0;
+float4 FrustumPlane1;
+float4 FrustumPlane2;
+float4 FrustumPlane3;
+float4 FrustumPlane4;
+float4 FrustumPlane5;
+
+bool IsSphereInsidePlane(float3 Center, float Radius, float4 Plane)
+{
+    return dot(Plane.xyz, Center) + Plane.w >= -Radius;
+}
+
+bool IsInstanceVisible(FGPUDrivenInstanceData Instance)
+{
+    const float3 Center = Instance.Position;
+    const float Radius = Instance.Radius;
+
+    return IsSphereInsidePlane(Center, Radius, FrustumPlane0)
+        && IsSphereInsidePlane(Center, Radius, FrustumPlane1)
+        && IsSphereInsidePlane(Center, Radius, FrustumPlane2)
+        && IsSphereInsidePlane(Center, Radius, FrustumPlane3)
+        && IsSphereInsidePlane(Center, Radius, FrustumPlane4)
+        && IsSphereInsidePlane(Center, Radius, FrustumPlane5);
+}
+
+[numthreads(1, 1, 1)]
+void CullInstancesCS(uint3 ThreadID : SV_DispatchThreadID)
+{
+    if (ThreadID.x != 0 || ThreadID.y != 0 || ThreadID.z != 0)
+    {
+        return;
+    }
+
+    uint VisibleCount = 0;
+
+    [loop]
+    for (uint InstanceIndex = 0; InstanceIndex < InstanceCount; ++InstanceIndex)
+    {
+        const FGPUDrivenInstanceData Instance = InstanceData[InstanceIndex];
+        if (IsInstanceVisible(Instance))
+        {
+            OutVisibleInstanceData[VisibleCount] = Instance;
+            VisibleCount++;
+        }
+    }
+
+    OutIndirectArgs[0] = 6;
+    OutIndirectArgs[1] = VisibleCount;
+    OutIndirectArgs[2] = 0;
+    OutIndirectArgs[3] = 0;
+}

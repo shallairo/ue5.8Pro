@@ -16,4 +16,7 @@ class GPUDRIVENPIPELINE_API UGPUDrivenIndirectDrawInterface : public UBlueprintF
 public:
     UFUNCTION(BlueprintCallable, Category = "GPU Driven Pipeline|Indirect Draw", meta = (DisplayName = "Execute Test Indirect Instance Draw", ToolTip = "Uploads deterministic instance data, lets a compute shader build indirect draw arguments, and renders colored quads into the supplied render target."))
     static void ExecuteTestIndirectInstanceDraw(UTextureRenderTarget2D* OutputRenderTarget, int32 InstanceCount = 1024);
+
+    UFUNCTION(BlueprintCallable, Category = "GPU Driven Pipeline|Indirect Draw", meta = (DisplayName = "Execute Test Frustum Culled Indirect Draw", ToolTip = "Uploads deterministic instance data, lets a compute shader cull instances and build indirect draw arguments, then renders only visible colored quads into the supplied render target."))
+    static void ExecuteTestFrustumCulledIndirectDraw(UTextureRenderTarget2D* OutputRenderTarget, int32 InstanceCount = 1024);
 };

@@ -62,11 +62,14 @@ YYYY-MM-DD-HHMM-topic.md
 - [plan/plan-2026-06-03-gpu-driven-execution.md](plan/plan-2026-06-03-gpu-driven-execution.md)：GPU-driven 渲染总体执行计划
 - [plan/plan-2026-06-03-demo-cleanup-and-baseline.md](plan/plan-2026-06-03-demo-cleanup-and-baseline.md)：Demo 规范化与基线整理计划
 - [plan/plan-2026-06-03-gpu-instance-data-path.md](plan/plan-2026-06-03-gpu-instance-data-path.md)：GPU 实例数据路径计划与完成记录
+- [plan/plan-2026-06-12-gpu-frustum-culling-mvp.md](plan/plan-2026-06-12-gpu-frustum-culling-mvp.md)：GPU 视锥裁剪 MVP 开发计划
 - [guide-gpu-pass-demo-v1.md](guide-gpu-pass-demo-v1.md)：第一个 GPU pass demo 搭建指南
 - [test-compute-shader-validation.md](test-compute-shader-validation.md)：渐变 RenderTarget pass 测试流程
 - [test-gpu-instance-data-path.md](test-gpu-instance-data-path.md)：GPU 实例数据路径测试流程
+- [test-gpu-frustum-culling-mvp.md](test-gpu-frustum-culling-mvp.md)：GPU 视锥裁剪 indirect draw 测试流程
 - [guide-mcp-configuration.md](guide-mcp-configuration.md)：Unreal MCP 配置指南
 - [report-2026-06-03-compute-pass-baseline.md](report-2026-06-03-compute-pass-baseline.md)：compute pass 基线结果
+- [report-2026-06-12-gpu-frustum-culling-mvp.md](report-2026-06-12-gpu-frustum-culling-mvp.md)：GPU 视锥裁剪 MVP 阶段结果
 - [learning/index.md](learning/index.md)：学习日志索引
 
 ## 文档策略

@@ -16,6 +16,7 @@ plan-YYYY-MM-DD-topic.md
 - `plan-2026-06-03-demo-cleanup-and-baseline.md`
 - `plan-2026-06-03-gpu-instance-data-path.md`
 - `plan-2026-06-04-indirect-draw-mvp.md`
+- `plan-2026-06-12-gpu-frustum-culling-mvp.md`
 
 ## 当前计划
 
@@ -49,8 +50,16 @@ plan-YYYY-MM-DD-topic.md
 
 说明：
 
-下一阶段计划：用 GPU 写出的 indirect args 驱动一次最小可见实例绘制。
+本阶段已完成，并已在 UE 中验证通过：GPU 可以写出 indirect args，并驱动最小可见实例绘制到 `RT_GPUComputeOutput`。
+
+### 5. GPU Frustum Culling MVP
+
+- [plan-2026-06-12-gpu-frustum-culling-mvp.md](/D:/ue/ue5.8Pro/docs/plan/plan-2026-06-12-gpu-frustum-culling-mvp.md)
+
+说明：
+
+下一阶段计划：在 indirect draw 之前加入最小 GPU frustum culling，输出可见实例列表，并让 indirect draw 只绘制可见实例。
 
 ## 下一步建议
 
-优先执行 `Indirect Draw MVP`，先验证最小可见 indirect draw，再进入 GPU culling 或 StaticMesh 渲染路径接入。
+优先执行 `GPU Frustum Culling MVP`，先验证“GPU 决定哪些实例可见，再驱动 indirect draw”，之后再考虑更真实的实例来源或 UE 场景渲染路径接入。

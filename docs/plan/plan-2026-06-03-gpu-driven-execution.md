@@ -11,7 +11,8 @@
 - `ExecuteSimpleComputeShader()` 可以从蓝图触发 compute shader。
 - Demo 关卡可以显示渐变输出。
 - 已记录 compute pass baseline。
-- 已开始实现 GPU 实例数据路径。
+- GPU 实例数据路径已经完成并验证通过。
+- `Indirect Draw MVP` 已经完成并验证通过。
 
 ## 总目标
 
@@ -53,7 +54,7 @@
 
 ## 阶段 3：GPU 实例数据路径
 
-状态：进行中。
+状态：已完成。
 
 目标：
 
@@ -69,21 +70,42 @@
 
 ## 阶段 4：Indirect Draw MVP
 
-状态：未开始。
+状态：已完成。
 
-进入条件：
+完成结果：
 
 - GPU 实例数据结构稳定。
 - structured buffer 上传路径可用。
 - compute shader 可以验证读取结果。
 - 有明确测试文档和学习日志。
 
-目标：
+已实现内容：
 
 - 准备 indirect draw arguments。
 - 构建最小 indirect draw 路径。
 - 渲染一批简单实例。
-- 与 baseline 做对比。
+- 将结果输出到 `RT_GPUComputeOutput` 并完成可视验证。
+
+对应文档：
+
+- [plan-2026-06-04-indirect-draw-mvp.md](plan-2026-06-04-indirect-draw-mvp.md)
+- [test-indirect-draw-mvp.md](../test-indirect-draw-mvp.md)
+- [2026-06-05-0830-indirect-draw-mvp.md](../learning/2026-06-05-0830-indirect-draw-mvp.md)
+
+## 阶段 5：GPU Frustum Culling MVP
+
+状态：下一阶段。
+
+目标：
+
+- 在 GPU 侧完成最小视锥裁剪。
+- 输出可见实例列表。
+- 让 indirect draw 只消费可见实例。
+- 验证可见实例数量会随相机参数变化而变化。
+
+当前计划：
+
+- [plan-2026-06-12-gpu-frustum-culling-mvp.md](plan-2026-06-12-gpu-frustum-culling-mvp.md)
 
 ## 非目标
 

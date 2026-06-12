@@ -58,3 +58,19 @@ YYYY-MM-DD-HHMM-topic.md
 内容：
 
 深入引擎源码讲解 FRHICommandListImmediate 的类继承、命令存储机制、Submit 流程，以及 FlushRenderingCommands 的实现原理和同步机制。
+
+### 6. Indirect Draw MVP
+
+- [2026-06-05-0830-indirect-draw-mvp.md](/D:/ue/ue5.8Pro/docs/learning/2026-06-05-0830-indirect-draw-mvp.md)
+
+内容：
+
+结合 `GPUDrivenIndirectDrawInterface`、`IndirectDrawShaders` 和 `IndirectDrawInstances.usf` 讲解“GPU 写 indirect args，并驱动最小实例绘制”的完整路径。
+
+### 7. GPU Frustum Culling MVP
+
+- [2026-06-12-0000-gpu-frustum-culling-mvp.md](/D:/ue/ue5.8Pro/docs/learning/2026-06-12-0000-gpu-frustum-culling-mvp.md)
+
+内容：
+
+结合 `FrustumCullInstances.usf`、`FFrustumCullInstancesShader` 和新的蓝图入口讲解“GPU 做最小视锥裁剪，并用可见实例驱动 indirect draw”的路径。
