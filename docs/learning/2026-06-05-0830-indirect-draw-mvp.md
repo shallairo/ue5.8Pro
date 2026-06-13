@@ -1,183 +1,508 @@
-# Indirect Draw MVP 学习记录
+# Indirect Draw MVP
 
-## 这次做了什么
+## 本篇定位
 
-这次实现的是项目里的第一条最小 indirect draw 路径。
+这是项目的一个关键拐点。之前的所有工作（compute shader 写 RT、instance validation）证明了 GPU "可以处理数据"。而 Indirect Draw MVP 证明的是：**GPU 可以写 draw 参数并驱动实际的绘制提交**。
 
-核心目标不是接入 UE 的完整 StaticMesh 渲染，而是先在插件内部证明两件事：
+从这一篇开始，我们的渲染路径中出现了**两条 GPU 流水线的交叉**：
+1. **Compute 流水线**：写 indirect args buffer
+2. **Graphics 流水线**：消费 indirect args buffer 并绘制
 
-1. GPU compute shader 可以写出 `DrawPrimitiveIndirect` 参数。
-2. graphics pipeline 可以真正消费这份参数并把实例画到 `RT_GPUComputeOutput`。
+理解这两条流水线的交互是掌握 GPU-driven rendering 的核心。
 
-相关源码：
+通过本篇的学习，你应该能回答以下问题：
+- `DrawPrimitiveIndirect` 和普通的 `DrawPrimitive` 有什么区别？
+- `FRHIDrawIndirectParameters` 的 4 个字段分别控制什么？
+- Vertex Shader 为什么可以不依赖 Vertex Buffer？`SV_VertexID` 和 `SV_InstanceID` 如何配合使用？
+- Compute Shader 写入的 indirect args 和 Graphics Pipeline 之间如何交接资源状态？
+- 为什么间接绘制不需要 CPU 等待 GPU 完成 args 写入？
 
-- [GPUDrivenIndirectDrawInterface.cpp](/E:/unrealProject/pro/Plugins/GPUDrivenPipeline/Source/GPUDrivenPipeline/Private/GPUData/GPUDrivenIndirectDrawInterface.cpp:1)
-- [IndirectDrawShaders.h](/E:/unrealProject/pro/Plugins/GPUDrivenPipeline/Source/GPUDrivenPipeline/Public/GPUData/IndirectDrawShaders.h:1)
-- [IndirectDrawShaders.cpp](/E:/unrealProject/pro/Plugins/GPUDrivenPipeline/Source/GPUDrivenPipeline/Private/GPUData/IndirectDrawShaders.cpp:1)
-- [IndirectDrawInstances.usf](/E:/unrealProject/pro/Plugins/GPUDrivenPipeline/Shaders/IndirectDrawInstances.usf:1)
+---
 
-## 核心链路
+## 一、涉及源码总览
 
-这一版的链路是：
+| 文件 | 行范围 | 职责 |
+|------|--------|------|
+| `GPUDrivenIndirectDrawInterface.h` | 全部 | **蓝图接口声明**：触发 indirect draw |
+| `GPUDrivenIndirectDrawInterface.cpp` | L700-L867 | **主逻辑**：ExecuteTestIndirectInstanceDraw |
+| `IndirectDrawShaders.h` | 全部 | **3 个 shader 类声明**：compute + VS + PS |
+| `IndirectDrawShaders.cpp` | 全部 | **Shader 注册**：间接绘制相关的 shader 编译 |
+| `IndirectDrawInstances.usf` | 全部 | **联合 shader 文件**：BuildIndirectArgsCS + MainVS + MainPS |
 
-```text
-CPU 生成测试实例
--> 上传 StructuredBuffer<FGPUDrivenInstanceData>
--> compute shader 写 indirect args buffer
--> graphics shader 用 DrawPrimitiveIndirect 绘制
--> 结果输出到 RT_GPUComputeOutput
+---
+
+## 二、Indirect Draw 的核心概念
+
+### 2.1 直接绘制 vs 间接绘制
+
+**直接绘制（Direct Draw）：**
+```cpp
+// CPU 决定一切绘制参数
+RHICmdList.SetVertexBuffer(...);
+RHICmdList.DrawPrimitive(VertexCount, InstanceCount, ...);
+// CPU 在调用时就已经知道 VertexCount 和 InstanceCount
 ```
 
-这里和之前的 `instance validation path` 最大不同在于：
+**间接绘制（Indirect Draw）：**
+```cpp
+// GPU 从 Buffer 中读取绘制参数
+// indirect args buffer 包含：VertexCount, InstanceCount, StartVertex, StartInstance
+RHICmdList.DrawPrimitiveIndirect(IndirectArgsBuffer, 0);  // 0 = args 在 Buffer 中的 offset
+// CPU 在调用时不知道 GPU 实际会画多少个实例！
+```
 
-- 之前是 GPU 读数据后写 summary，再 readback 回 CPU
-- 这次是 GPU 读数据后直接驱动 draw
+**时机对比：**
 
-也就是说，验证目标从“GPU 能处理实例数据”推进到了“GPU 处理完数据后，能继续推动真正的渲染提交”。
+```
+直接绘制:
+  CPU: "画 1024 个实例" ──────────────→ GPU: 执行   [同步填参数]
+  
+间接绘制:
+  GPU compute: "我算出 VisibleCount=256" → 写入 ArgsBuffer
+                                          ↓
+  CPU: "画 ArgsBuffer 指定的数量" ──────→ GPU: 读取 ArgsBuffer → 按照 256 画
+                                          [参数由 GPU 自己决定]
+```
 
-## 最重要的几个概念
+### 2.2 FRHIDrawIndirectParameters 的布局
 
-### 1. indirect args buffer 是什么
+```
+Indirect Draw 的所有参数存储在 Buffer 中，格式固定为 4 个 uint32：
 
-`DrawPrimitiveIndirect` 需要一段符合固定布局的参数缓冲。
+Offset (bytes) | 字段               | 本项目的值
+---------------+--------------------+-----------
+0              | VertexCountPerInstance | 6 (quad = 2 三角形 = 6 顶点)
+4              | InstanceCount      | InstanceCount (GPU 决定)
+8              | StartVertexLocation   | 0
+12             | StartInstanceLocation | 0
 
-在 UE/RHI 里，对应的是：
+总大小 = 16 bytes
+```
+
+这个布局是图形 API 级的约定（D3D12/Vulkan 都遵循）：
+
+| D3D12 | Vulkan | UE 包装 |
+|-------|--------|---------|
+| `D3D12_DRAW_ARGUMENTS` | `VkDrawIndirectCommand` | `FRHIDrawIndirectParameters` |
+| VertexCountPerInstance | vertexCount |  |
+| InstanceCount | instanceCount |  |
+| StartVertexLocation | firstVertex |  |
+| StartInstanceLocation | firstInstance |  |
+
+---
+
+## 三、完整执行链路追踪
+
+### Phase 1：CPU 侧准备工作（游戏线程）
+
+```
+GPUDrivenIndirectDrawInterface.cpp:700-867
+ExecuteTestIndirectInstanceDraw(UTextureRenderTarget2D*, int32 InstanceCount)
+```
+
+```
+[L702-706]  检查 GRHIGlobals.SupportsDrawIndirect —— 不是所有 RHI 都支持间接绘制！
+[L708-717]  检查 RenderTarget、InstanceCount 有效性
+[L728-743]  获取 RenderTargetResource + TextureSize
+[L745]      生成 CPU 测试实例数据 GenerateTestInstances(InstanceCount)
+[L747]      计算 GridWorldExtent（实例网格的世界空间范围）
+```
+
+### Phase 2：ENQUEUE_RENDER_COMMAND → 渲染线程
+
+```
+GPUDrivenIndirectDrawInterface.cpp:749-867
+```
+
+**Phase 2a：创建 Instance Buffer + SRV（L760-L775）**
 
 ```cpp
-struct FRHIDrawIndirectParameters
+FBufferRHIRef InstanceBuffer = UE::RHIResourceUtils::CreateBufferFromArray<FGPUDrivenInstanceData>(
+    RHICmdList,
+    TEXT("GPUDrivenPipeline.IndirectDraw.InstanceData"),
+    EBufferUsageFlags::StructuredBuffer | EBufferUsageFlags::ShaderResource,
+    ERHIAccess::SRVGraphics,          // ★ 注意这里是 SRVGraphics（vertex shader 读取）
+    TConstArrayView<FGPUDrivenInstanceData>(Instances));
+
+FShaderResourceViewRHIRef InstanceDataSRV = RHICmdList.CreateShaderResourceView(
+    InstanceBuffer,
+    FRHIViewDesc::CreateBufferSRV().SetTypeFromBuffer(InstanceBuffer));
+```
+
+注意这里的状态是 `SRVGraphics`（Pixel Shader 或 Vertex Shader 读取），不是 `SRVCompute`。因为 InstanceData 将在 **Graphics Pipeline 的 Vertex Shader** 中被读取。
+
+**Phase 2b：创建 IndirectArgs Buffer + UAV（L777-L795）**
+
+```cpp
+FBufferRHIRef IndirectArgsBuffer = UE::RHIResourceUtils::CreateBufferFromArray<uint32>(
+    RHICmdList,
+    TEXT("GPUDrivenPipeline.IndirectDraw.Args"),
+    EBufferUsageFlags::DrawIndirect | EBufferUsageFlags::UnorderedAccess,
+    ERHIAccess::UAVCompute,             // 初始状态：compute shader 写入
+    TConstArrayView<uint32>(InitialIndirectArgs, IndirectArgsUintCount));
+
+FUnorderedAccessViewRHIRef IndirectArgsUAV = RHICmdList.CreateUnorderedAccessView(
+    IndirectArgsBuffer,
+    FRHIViewDesc::CreateBufferUAV()
+        .SetType(FRHIViewDesc::EBufferType::Typed)
+        .SetFormat(PF_R32_UINT));       // ★ Typed UAV，每个元素是 uint32
+```
+
+`EBufferUsageFlags::DrawIndirect` 标记了这个 Buffer 将用于 `DrawPrimitiveIndirect`。没有这个标记，DrawIndirect 调用会失败。
+
+`FRHIViewDesc::CreateBufferUAV().SetType(Typed).SetFormat(PF_R32_UINT)` 表示这是一个"类型化"的 UAV——GPU 知道 Buffer 里存的是 `uint32` 数组，不是结构化数据。
+
+**Phase 2c：Dispatch Compute Shader 写 Indirect Args（L803-L812）**
+
+```cpp
+FIndirectDrawArgsShader::FParameters ComputeParameters;
+ComputeParameters.OutIndirectArgs = IndirectArgsUAV;
+ComputeParameters.InstanceCount = static_cast<uint32>(InstanceCount);
+
+TShaderMapRef<FIndirectDrawArgsShader> IndirectArgsShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
+
+const double ComputeStartTime = FPlatformTime::Seconds();
+FComputeShaderUtils::Dispatch(RHICmdList, IndirectArgsShader, ComputeParameters, FIntVector(1, 1, 1));
+const double ComputeEndTime = FPlatformTime::Seconds();
+```
+
+`GroupCount = (1,1,1)` × `numthreads(1,1,1)` = 总共 1 个线程。因为只需要写 4 个 uint32，单线程就够了。
+
+**Phase 2d：资源状态转换（L814-L815）**
+
+```cpp
+RHICmdList.Transition(FRHITransitionInfo(IndirectArgsBuffer,
+    ERHIAccess::UAVCompute,             // 当前：compute 可写
+    ERHIAccess::IndirectArgs));         // 目标：indirect draw 参数
+
+RHICmdList.Transition(FRHITransitionInfo(RenderTargetTexture,
+    ERHIAccess::SRVMask,                // 当前：材质只读
+    ERHIAccess::RTV));                  // 目标：render target 写入
+```
+
+**Phase 2e：Graphics Pipeline 设置与 Indirect Draw（L817-L853）**
+
+```cpp
+// 1. 开始 RenderPass
+FRHIRenderPassInfo RenderPassInfo(1, ColorRTs, ERenderTargetActions::Clear_Store);
+RHICmdList.BeginRenderPass(RenderPassInfo, TEXT("GPUDrivenPipeline_IndirectDraw"));
+RHICmdList.SetViewport(...);
+
+// 2. 设置 PSO（Pipeline State Object）
+FGraphicsPipelineStateInitializer GraphicsPSOInit;
+RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GEmptyVertexDeclaration.VertexDeclarationRHI;
+// ★ 使用空顶点声明：没有 CPU 顶点缓冲！
+GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader.GetVertexShader();
+GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShader.GetPixelShader();
+SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit, 0);
+
+// 3. 绑定参数
+FIndirectDrawInstanceVS::FParameters VertexParameters;
+VertexParameters.InstanceData = VisibleInstanceDataSRV;  // SRV 绑定到 vertex shader
+// ... 其他参数 ...
+
+// 4. ★ 间接绘制！GPU 从 Buffer 读取 InstanceCount
+RHICmdList.DrawPrimitiveIndirect(IndirectArgsBuffer, 0);
+
+// 5. 结束 RenderPass
+RHICmdList.EndRenderPass();
+RHICmdList.Transition(RenderTargetTexture, ERHIAccess::RTV, ERHIAccess::SRVMask);
+```
+
+---
+
+## 四、Shader 源码分析
+
+### 4.1 Compute Shader：BuildIndirectArgsCS
+
+```
+IndirectDrawInstances.usf:19-31
+```
+
+```hlsl
+[numthreads(1, 1, 1)]
+void BuildIndirectArgsCS(uint3 ThreadID : SV_DispatchThreadID)
 {
-    uint32 VertexCountPerInstance;
-    uint32 InstanceCount;
-    uint32 StartVertexLocation;
-    uint32 StartInstanceLocation;
-};
+    if (ThreadID.x != 0 || ThreadID.y != 0 || ThreadID.z != 0) return;
+
+    // [L27-L30] 写入间接绘制参数
+    OutIndirectArgs[0] = 6;            // VertexCountPerInstance (quad = 6 verts)
+    OutIndirectArgs[1] = InstanceCount; // InstanceCount (= 输入实例总数)
+    OutIndirectArgs[2] = 0;            // StartVertexLocation
+    OutIndirectArgs[3] = 0;            // StartInstanceLocation
+}
 ```
 
-这次 compute shader 写出的就是这 4 个 `uint`：
+**输出解释：** GPU 告诉 graphics pipeline："每个实例 6 个顶点，一共画 InstanceCount 个实例，从顶点 0、实例 0 开始。"
 
-- `VertexCountPerInstance = 6`
-- `InstanceCount = 输入实例数`
-- `StartVertexLocation = 0`
-- `StartInstanceLocation = 0`
+此时 `OutIndirectArgs` 是 `RWBuffer<uint>`（Typed UAV），所以 `OutIndirectArgs[0]` 就是第 0 个 uint32。
 
-因为每个实例画的是一个 quad，而 quad 由两个三角形组成，所以一共需要 `6` 个顶点。
+### 4.2 Vertex Shader：MainVS
 
-### 2. 为什么 vertex shader 不需要顶点缓冲
-
-这次 graphics shader 使用了：
-
-- `SV_VertexID`
-- `SV_InstanceID`
-
-因此不需要传统的 vertex buffer 来存几何体顶点。
-
-做法是：
-
-- 用 `SV_VertexID % 6` 在 shader 里直接生成一个 quad 的 6 个顶点偏移
-- 用 `SV_InstanceID` 读取 `StructuredBuffer<FGPUDrivenInstanceData>` 中对应实例的数据
-
-这也是为什么代码里使用了 `GEmptyVertexDeclaration`。当前 MVP 的几何不是从 CPU 顶点流中取，而是由 shader 程序化生成。
-
-### 3. 为什么先画到 RenderTarget
-
-这一步没有直接接 UE 的 StaticMesh 渲染路径，是因为那样会一下子引入更多复杂问题：
-
-- 场景代理
-- mesh/material 绑定
-- 可见性系统
-- draw list 集成
-
-当前先把结果画到 `RT_GPUComputeOutput`，可以让我们只聚焦于：
-
-- indirect args 是否正确
-- shader 读取实例数据是否正确
-- draw 是否真的被 GPU 提交执行
-
-这是一种很适合原型阶段的“缩小战场”方法。
-
-## 代码里最值得记住的点
-
-### `UGPUDrivenIndirectDrawInterface::ExecuteTestIndirectInstanceDraw`
-
-这个函数负责：
-
-- 检查 RHI 是否支持 draw indirect
-- 生成测试实例数据
-- 创建 instance structured buffer
-- 创建 indirect args buffer
-- dispatch compute shader 写 indirect 参数
-- 开启 render pass 并调用 `RHICmdList.DrawPrimitiveIndirect`
-
-它是当前 indirect draw MVP 的主入口。
-
-### `FIndirectDrawArgsShader`
-
-这是最小 compute shader。
-
-它的任务非常单纯：向 args buffer 写 4 个整数。
-
-虽然逻辑简单，但意义很大，因为这代表：
-
-```text
-draw 参数已经由 GPU 生产，而不是 CPU 直接填结构体后立刻调用 draw
+```
+IndirectDrawInstances.usf:69-88
 ```
 
-### `FIndirectDrawInstanceVS`
+```hlsl
+FVertexOutput MainVS(uint VertexID : SV_VertexID, uint InstanceID : SV_InstanceID)
+{
+    // [L73] 从 SRV 中读取实例数据
+    // InstanceData 是 StructuredBuffer<FGPUDrivenInstanceData>
+    // GPU 内部用 InstanceID × stride 计算地址偏移
+    const FGPUDrivenInstanceData Instance = InstanceData[InstanceID];
 
-这个 vertex shader 做了两件事：
+    // [L75-L77] 将世界坐标 XY 归一化到 NDC [-1, 1]
+    const float2 SafeExtent = max(GridWorldExtent, float2(1.0, 1.0));
+    const float2 Normalized = (Instance.Position.xy - GridWorldMin) / SafeExtent;
+    const float2 Center = float2(Normalized.x * 2.0 - 1.0, 1.0 - Normalized.y * 2.0);
 
-1. 根据 `SV_InstanceID` 读取实例数据
-2. 根据 `SV_VertexID` 生成 quad 的顶点偏移
+    // [L79-L81] quad 尺寸在 NDC 空间中的半边长
+    const float2 QuadHalfSizeNDC = float2(
+        (QuadPixelSize / max(RenderTargetSize.x, 1.0)) * 2.0,
+        (QuadPixelSize / max(RenderTargetSize.y, 1.0)) * 2.0);
 
-再把实例的位置映射到 RenderTarget 的 NDC 坐标范围里。
+    // [L83] 根据 VertexID 生成 quad 四个角的顶点偏移
+    const float2 Offset = GetQuadVertexOffset(VertexID) * QuadHalfSizeNDC;
 
-## 这一步最容易踩的坑
-
-### 1. 画面被旧的 compute pass 覆盖
-
-如果蓝图里同时调用旧的渐变 pass 和新的 indirect draw pass，后执行的那个会覆盖前一个对 `RT_GPUComputeOutput` 的写入结果。
-
-所以测试时最好只保留一个最终写入节点。
-
-### 2. 把 CPU dispatch time 当成 GPU 性能
-
-日志里的 `cpu-compute` 和 `cpu-draw` 只是 CPU 提交命令的耗时，不是 GPU 实际执行时间。
-
-如果后续要做真正的性能分析，还是要看：
-
-- `stat gpu`
-- RenderDoc
-- PIX
-- Unreal Insights GPU trace
-
-### 3. 资源状态转换出错
-
-这一类路径最敏感的地方是 resource transition。
-
-当前代码里至少涉及：
-
-- indirect args buffer：从 `UAVCompute` 切到 `IndirectArgs`
-- render target：从 `SRVMask` 切到 `RTV`，绘制后再切回 `SRVMask`
-
-如果这里状态错了，很容易出现黑屏、RHI warning，甚至驱动报错。
-
-## 当前阶段的结论
-
-这一步如果验证通过，项目状态就从：
-
-```text
-GPU 可以处理实例数据
+    // [L85] 最终顶点位置 = 实例中心 + 偏移
+    Output.Position = float4(Center + Offset, 0.0, 1.0);
+    Output.Color = GetInstanceColor(Instance.Flags);
+    return Output;
+}
 ```
 
-推进到：
+**为什么不需要 Vertex Buffer：**
+- `SV_InstanceID` 由 GPU 自动生成，值从 0 递增到 `InstanceCount - 1`
+- 通过 `InstanceData[InstanceID]` 可以直接在 SRV 中索引到对应实例
+- `SV_VertexID`（0..5）在 GetQuadVertexOffset 中返回 quad 6 个顶点的局部偏移
+- 所以不需要 CPU 上传任何顶点缓冲！
 
-```text
-GPU 可以写 draw 参数并驱动最小 draw
+**Quad 生成（GetQuadVertexOffset）：**
+
+```
+VertexID 0 → (-1,-1)  1 → (-1,+1)  2 → (+1,+1)
+              ┌──────┐
+              │  \   │
+              │   \  │
+              └──────┘
+VertexID 3 → (-1,-1)  4 → (+1,+1)  5 → (+1,-1)
 ```
 
-这已经是进入真正 GPU-driven renderer 之前非常关键的拐点。
+这是两个三角形组成一个 quad 的标准模式，用 `SV_VertexID % 6` 取模复用。
 
-下一步就可以继续往这两个方向之一推进：
+### 4.3 Pixel Shader：MainPS
 
-1. 让 indirect draw 读取更真实的可见实例列表
-2. 在 indirect draw 之前加入 frustum culling compute pass
+```
+IndirectDrawInstances.usf:90-93
+```
+
+```hlsl
+float4 MainPS(FVertexOutput Input) : SV_Target0
+{
+    return Input.Color;
+}
+```
+
+像素 shader 的任务极其简单：直接输出 vertex shader 传入的颜色。
+
+---
+
+## 五、关键资源状态转换图
+
+**本阶段同时操作了 Compute 和 Graphics 两条流水线：**
+
+```
+Compute Pipeline                    Graphics Pipeline
+────────────────                    ─────────────────
+
+Instance StructuredBuffer (SRV) ←──────────────── Instance StructuredBuffer (SRV)
+                                              （同一个 Buffer，同一状态 SRVGraphics）
+      
+IndirectArgsBuffer
+  ├─ [Compute] UAVCompute: shader 写入 4 uint32
+  │
+  └─ Transition: UAVCompute → IndirectArgs  ★ 关键转换
+       │
+       └─ [Graphics] IndirectArgs: DrawPrimitiveIndirect 读取
+
+RenderTargetTexture
+  ├─ [初始] SRVMask
+  │
+  ├─ Transition: SRVMask → RTV  ★ RenderTarget 转换
+  │
+  ├─ [Graphics] RTV: 像素 shader 写入
+  │
+  └─ Transition: RTV → SRVMask  ★ 恢复材质采样
+```
+
+**为什么需要 Transition：**
+- `IndirectArgsBuffer` 刚刚被 compute shader 写入（UAVCompute），现在 graphics pipeline 要以间接参数方式读取。D3D12 要求显式转换状态，否则可能读到过期数据或 crash。
+- `RenderTargetTexture` 从材质采样（SRVMask）切换到 render target 写入（RTV），转换是必须的。
+
+---
+
+## 六、完整执行流程图
+
+```
+游戏线程                                渲染线程                              GPU
+───────                                ────────                             ───────
+ExecuteTestIndirectInstanceDraw()
+  │
+  ├─ 生成测试实例数据
+  │
+  ├─ ENQUEUE_RENDER_COMMAND ─────────→ lambda 执行
+  │                                      │
+  │                                      ├─ CreateBufferFromArray(Instances)
+  │                                      │   → Instance StructuredBuffer + SRV
+  │                                      │
+  │                                      ├─ CreateBufferFromArray(ArgsInit)
+  │                                      │   → Args Buffer + UAV
+  │                                      │
+  │  (游戏线程继续执行)                     ├─ Dispatch(BuildIndirectArgsCS) ────→ GPU
+  │                                      │   GroupCount=(1,1,1)                  │
+  │                                      │   OutIndirectArgs = UAV               │
+  │                                      │                                       │
+  │                                      │   Transition: UAVCompute → IndirectArgs
+  │                                      │   Transition: SRVMask → RTV
+  │                                      │
+  │                                      ├─ BeginRenderPass(RT)
+  │                                      │
+  │                                      ├─ SetGraphicsPipelineState
+  │                                      │   ├─ VertexShader = MainVS
+  │                                      │   ├─ PixelShader = MainPS
+  │                                      │   ├─ EmptyVertexDecl → 无 VB
+  │                                      │   └─ Primitive = TriangleList
+  │                                      │
+  │                                      ├─ SetShaderParameters(VS)
+  │                                      │   InstanceData = SRV
+  │                                      │
+  │                                      ├─ DrawPrimitiveIndirect(args) ────────→ GPU
+  │                                      │   ArgsBuffer: VertexCount=6           │
+  │                                      │   InstanceCount=<GPU决定>              │
+  │                                      │                                       │
+  │                                      │                              MainVS 执行
+  │                                      │                              InstanceID → 读取 SRV
+  │                                      │                              VertexID → 生成 quad
+  │                                      │                                       │
+  │                                      │                              MainPS 执行
+  │                                      │                              输出颜色
+  │                                      │                                       │
+  │                                      ├─ EndRenderPass
+  │                                      └─ Transition: RTV → SRVMask
+  │
+  关卡显示 RT_GPUComputeOutput
+```
+
+---
+
+## 七、补充知识点
+
+### 7.1 GEmptyVertexDeclaration
+
+`GEmptyVertexDeclaration` 是 UE 提供的一个特殊顶点声明，表示 "这个 draw call 不需要 CPU 顶点缓冲"。它在 `CommonRenderResources.h` 中定义。
+
+**通常的绘制流程（有 VB）：**
+```
+CPU 上传顶点数据 → VertexBuffer → IA（Input Assembler）阶段绑定 VB
+→ VS 通过 InputLayout 读取顶点属性 → 渲染
+```
+
+**本项目的绘制流程（无 VB）：**
+```
+VS 通过 SV_VertexID 程序化生成顶点位置 → 不需要 InputLayout
+VS 通过 SV_InstanceID 从 StructuredBuffer 中读取实例数据
+```
+
+使用 `GEmptyVertexDeclaration` 的场景：
+1. 程序化生成几何体（quad、fullscreen triangle）
+2. GPU-driven 管线（实例数据来自 StructuredBuffer）
+3. VS 只需要系统语义（SV_VertexID, SV_InstanceID）不需要自定义 attribute
+
+### 7.2 DrawPrimitiveIndirect 的执行时机
+
+当 CPU 调用 `RHICmdList.DrawPrimitiveIndirect(ArgsBuffer, 0)` 时：
+
+1. CPU 侧的 RHI 代码记录一个 DrawIndirect 命令到命令列表
+2. 这个命令不包含具体的绘制参数，只包含 ArgsBuffer 的 GPU 地址
+3. GPU 执行到这个命令时，才从显存中读取 ArgsBuffer 的内容
+4. **此时 compute shader 对 ArgsBuffer 的写入早已完成**（因为都在同一个 `ImmediateFlush` 批次中）
+
+所以不需要 CPU 侧等待——GPU 按命令列表顺序执行，compute shader 在后，draw 在前。Transition 确保了之前的写入对后续读取可见。
+
+### 7.3 一次 Dispatch + 一次 Draw 的两阶段模式
+
+本项目目前的 Indirect Draw MVP 做了 **两次 GPU 工作**：
+
+```
+1. Dispatch (Compute) → 写 IndirectArgs
+   ↑                  ↑
+  CPU提交             GPU执行时间
+   
+2. DrawPrimitiveIndirect (Graphics) → 消费 IndirectArgs
+```
+
+这两次之间没有任何 CPU 介入。compute shader 执行完后，ArgsBuffer 中包含有效的绘制参数，随后 graphics pipeline 立即读取它。
+
+**这就是 GPU-driven 的核心模式：GPU 自己决定后续 GPU 的工作。**
+
+### 7.4 VS/PS 参数的 C++/HLSL 绑定机制
+
+```cpp
+// C++ 侧声明参数
+BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
+    SHADER_PARAMETER_SRV(StructuredBuffer<FGPUDrivenInstanceData>, InstanceData)
+    SHADER_PARAMETER(uint32, InstanceCount)
+    SHADER_PARAMETER(FVector2f, RenderTargetSize)
+    SHADER_PARAMETER(FVector2f, GridWorldMin)
+    SHADER_PARAMETER(FVector2f, GridWorldExtent)
+    SHADER_PARAMETER(float, QuadPixelSize)
+END_SHADER_PARAMETER_STRUCT()
+
+// C++ 侧填充参数
+VertexParameters.InstanceData = VisibleInstanceDataSRV;
+
+// 使用 SetShaderParameters 一次性绑定所有参数到 GPU
+SetShaderParameters(RHICmdList, VertexShader, VertexShader.GetVertexShader(), VertexParameters);
+```
+
+SetShaderParameters 内部做了：
+1. 遍历 FParameters 的每个成员（通过 UE 反射/宏生成的信息）
+2. 根据其在结构体中的 offset 和 type，决定绑定到 GPU 的哪个 slot
+3. 调用 `RHICmdList.SetShaderResourceViewParameter` / `SetShaderParameter`
+
+HLSL 侧同名字段的绑定由 shader 编译系统自动匹配（通过 slot register）。
+
+---
+
+## 八、验证步骤
+
+1. 在蓝图 `BeginPlay` 中调用 `Execute Test Indirect Instance Draw (RT_GPUComputeOutput, 1024)`
+2. 确保关卡中显示 RT 的平面存在
+3. Output Log 应输出：
+   ```
+   GPUDrivenPipeline: IndirectDraw MVP rendered 1024 instances to RT_GPUComputeOutput (1024x1024, ...)
+   ```
+4. 画面应显示彩色 quad 网格
+
+**对比旧 compute pass：**
+- 旧 pass：红绿渐变（每个像素由 compute shader 填充）
+- 新 pass：彩色 quad 网格（每个 quad 代表一个实例，由 indirect draw 绘制）
+- 如果看到渐变而不是 quad，说明仍然在显示旧 pass 的输出——交叉检查蓝图节点连接
+
+---
+
+## 九、常见问题排查
+
+| 现象 | 可能原因 | 排查方法 |
+|------|---------|---------|
+| 画面黑色 | RT 在 draw 后未被材质采样 | 检查 Transition 是否正确恢复到 SRVMask |
+| | Indirect args 无效 | 检查 args buffer 创建标志是否含 `DrawIndirect` |
+| 实例画不全 | InstanceCount 太大 | 检查 MaxIndirectDrawInstanceCount 上限 |
+| | ArgsBuffer 内容被覆盖 | 检查 Transition 时序 |
+| RHI warning | 资源状态转换错误 | 检查每个 Transition 的两个状态是否正确 |
+| GPU crash | 使用 Compute Shader 写入 `DrawIndirect` 标记的 Buffer | 确认 UAV 创建格式正确 |

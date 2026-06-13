@@ -18,6 +18,7 @@ plan-YYYY-MM-DD-topic.md
 - `plan-2026-06-04-indirect-draw-mvp.md`
 - `plan-2026-06-12-gpu-frustum-culling-mvp.md`
 - `plan-2026-06-12-gpu-visible-count-and-camera-frustum.md`
+- `plan-2026-06-13-parallel-gpu-frustum-culling.md`
 
 ## 当前计划
 
@@ -67,8 +68,16 @@ plan-YYYY-MM-DD-topic.md
 
 说明：
 
-下一阶段计划：先增加 GPU visible count readback，严格验证 GPU 裁剪数量；再把固定测试 frustum plane 替换为真实相机视锥参数。
+本阶段已经打通 GPU visible count readback、真实相机 frustum 和 plane-bound debug path；当前仍有视锥裁剪尺寸与平面映射不完全一致的已知问题，但不阻塞下一阶段并行化。
+
+### 7. Parallel GPU Frustum Culling
+
+- [plan-2026-06-13-parallel-gpu-frustum-culling.md](/D:/ue/ue5.8Pro/docs/plan/plan-2026-06-13-parallel-gpu-frustum-culling.md)
+
+说明：
+
+下一阶段计划：把当前单线程 frustum culling shader 升级为并行 GPU culling，通过 atomic counter 写 visible list、visible count 和 indirect args，为真实规模 GPU-driven 渲染打基础。
 
 ## 下一步建议
 
-优先执行 `GPU Visible Count 与 Camera Frustum`，先把验证闭环做严谨，再让裁剪结果跟随真实相机变化。之后再考虑并行 culling 或真实场景实例来源。
+优先执行 `Parallel GPU Frustum Culling`，保留当前 serial path 作为 baseline，先把 parallel visible list、GPU visible count 和 indirect args 写入做稳定。之后再考虑真实场景实例来源或 GPU LOD。

@@ -64,6 +64,7 @@ YYYY-MM-DD-HHMM-topic.md
 - [plan/plan-2026-06-03-gpu-instance-data-path.md](plan/plan-2026-06-03-gpu-instance-data-path.md)：GPU 实例数据路径计划与完成记录
 - [plan/plan-2026-06-12-gpu-frustum-culling-mvp.md](plan/plan-2026-06-12-gpu-frustum-culling-mvp.md)：GPU 视锥裁剪 MVP 开发计划
 - [plan/plan-2026-06-12-gpu-visible-count-and-camera-frustum.md](plan/plan-2026-06-12-gpu-visible-count-and-camera-frustum.md)：GPU 可见数量回读与真实相机视锥计划
+- [plan/plan-2026-06-13-parallel-gpu-frustum-culling.md](plan/plan-2026-06-13-parallel-gpu-frustum-culling.md)：并行 GPU 视锥裁剪开发计划
 - [guide-gpu-pass-demo-v1.md](guide-gpu-pass-demo-v1.md)：第一个 GPU pass demo 搭建指南
 - [test/test-compute-shader-validation.md](test/test-compute-shader-validation.md)：渐变 RenderTarget pass 测试流程
 - [test/test-gpu-instance-data-path.md](test/test-gpu-instance-data-path.md)：GPU 实例数据路径测试流程
