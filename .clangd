@@ -1,0 +1,21 @@
+CompileFlags:
+  CompilationDatabase: E:/UnrealEngine/
+  Add:
+    - -Wno-unknown-attributes
+    - -Wno-unused-command-line-argument
+    - -Wno-ignored-attributes
+    - -Wno-microsoft-include
+
+Index:
+  Background: Build
+
+Diagnostics:
+  Suppress:
+    - drv_unknown_argument
+    - drv_unsupported_opt
+    - pp_multiple_definition_in_macro
+
+---
+# Exclude generated/intermediate directories from indexing to improve performance
+If:
+  PathExclude: .*[/\\](Intermediate|Binaries|DerivedDataCache|Saved)[/\\].*
