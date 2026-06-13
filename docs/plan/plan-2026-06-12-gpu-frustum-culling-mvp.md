@@ -217,7 +217,7 @@ GPUDrivenPipeline: Frustum culled indirect draw submitted 4096 source instances 
 
 实现完成后新增或更新：
 
-- `docs/test-gpu-frustum-culling-mvp.md`
+- `docs/test/test-gpu-frustum-culling-mvp.md`
 - `docs/learning/YYYY-MM-DD-HHMM-gpu-frustum-culling-mvp.md`
 - `docs/plan/index.md`
 - `docs/plan/plan-2026-06-03-gpu-driven-execution.md`

@@ -13,6 +13,7 @@
 - 已记录 compute pass baseline。
 - GPU 实例数据路径已经完成并验证通过。
 - `Indirect Draw MVP` 已经完成并验证通过。
+- `GPU Frustum Culling MVP` 已经完成并验证通过。
 
 ## 总目标
 
@@ -89,23 +90,40 @@
 对应文档：
 
 - [plan-2026-06-04-indirect-draw-mvp.md](plan-2026-06-04-indirect-draw-mvp.md)
-- [test-indirect-draw-mvp.md](../test-indirect-draw-mvp.md)
+- [test-indirect-draw-mvp.md](../test/test-indirect-draw-mvp.md)
 - [2026-06-05-0830-indirect-draw-mvp.md](../learning/2026-06-05-0830-indirect-draw-mvp.md)
 
 ## 阶段 5：GPU Frustum Culling MVP
 
-状态：下一阶段。
+状态：已完成。
 
 目标：
 
 - 在 GPU 侧完成最小视锥裁剪。
 - 输出可见实例列表。
 - 让 indirect draw 只消费可见实例。
-- 验证可见实例数量会随相机参数变化而变化。
+- 验证固定测试 frustum plane 可以裁掉外圈实例，并让 indirect draw 只绘制可见实例。
+
+对应文档：
+
+- [plan-2026-06-12-gpu-frustum-culling-mvp.md](plan-2026-06-12-gpu-frustum-culling-mvp.md)
+- [test-gpu-frustum-culling-mvp.md](../test/test-gpu-frustum-culling-mvp.md)
+- [2026-06-12-0000-gpu-frustum-culling-mvp.md](../learning/2026-06-12-0000-gpu-frustum-culling-mvp.md)
+
+## 阶段 6：GPU Visible Count 与 Camera Frustum
+
+状态：已实现，待 UE 验证。
+
+目标：
+
+- 增加 GPU visible count readback，获得严格的 GPU 端可见数量验证。
+- 将固定测试 frustum plane 替换为真实相机视锥 plane。
+- 证明相机位置或朝向变化会影响 GPU culling 和最终 indirect draw。
+- 保持当前 RenderTarget demo 路径，不接入 StaticMesh / Nanite。
 
 当前计划：
 
-- [plan-2026-06-12-gpu-frustum-culling-mvp.md](plan-2026-06-12-gpu-frustum-culling-mvp.md)
+- [plan-2026-06-12-gpu-visible-count-and-camera-frustum.md](plan-2026-06-12-gpu-visible-count-and-camera-frustum.md)
 
 ## 非目标
 

@@ -27,10 +27,11 @@
 GPU Driven Pipeline | Indirect Draw
 ```
 
-本阶段使用的新节点：
+本阶段使用的节点：
 
 ```text
 Execute Test Frustum Culled Indirect Draw
+Get Last Frustum Cull Result
 ```
 
 参数：
@@ -48,6 +49,21 @@ BeginPlay
 ```
 
 测试时不要同时让旧的 `Execute Simple Compute Shader` 或 `Execute Test Indirect Instance Draw` 在后面继续写入同一个 RenderTarget，否则后执行的节点会覆盖本阶段结果。
+
+如果要验证 GPU readback，建议再补一个短延迟和结果查询链路：
+
+```text
+BeginPlay
+-> Execute Test Frustum Culled Indirect Draw(RT_GPUComputeOutput, 1024)
+-> Delay(0.2)
+-> Get Last Frustum Cull Result
+-> Branch
+```
+
+建议：
+
+- `True` 分支打印 `EstimatedVisibleCount` 和 `GpuVisibleCount`
+- `False` 分支打印 `frustum cull result not ready`
 
 ## 预期结果
 
@@ -68,7 +84,11 @@ GPUDrivenPipeline: Frustum culled indirect draw submitted 1024 source instances 
 - `cpu-cull`
 - `cpu-draw`
 
-说明：`estimated-visible` 是 CPU 使用同一组测试平面估算出来的可见数量。真正控制 draw 数量的是 GPU 写入 indirect args 的 `InstanceCount`。
+说明：
+
+- `estimated-visible` 是 CPU 使用同一组测试平面估算出来的可见数量。
+- 真正控制 draw 数量的是 GPU 写入 indirect args 的 `InstanceCount`。
+- `Get Last Frustum Cull Result` 返回的 `GpuVisibleCount` 才是 GPU summary readback 的严格计数。
 
 ## 建议测试规模
 
@@ -82,6 +102,7 @@ GPUDrivenPipeline: Frustum culled indirect draw submitted 1024 source instances 
 
 - 平面是否只显示局部实例
 - 实例数量增加后，可见区域内的色块密度是否增加
+- `GpuVisibleCount` 是否与 `EstimatedVisibleCount` 一致
 - 多次 Play / Stop 是否稳定
 - 是否出现 shader 编译错误、RHI warning 或 `device removed`
 
@@ -103,7 +124,8 @@ GPUDrivenPipeline: Frustum culled indirect draw submitted 1024 source instances 
 
 - 先用 `1024` 验证，再改成 `256` 和 `4096`
 - 当前 frustum plane 是固定测试参数，不跟随相机移动
-- 第一版没有 GPU visible count readback，因此以画面变化和 `estimated-visible` 做对照
+- 用 `Get Last Frustum Cull Result` 检查 `GpuVisibleCount` 是否与 `EstimatedVisibleCount` 一致
+- 如果 `Get Last Frustum Cull Result` 返回 `False`，先延长 `Delay` 再测
 
 ## 当前限制
 
@@ -115,4 +137,4 @@ GPUDrivenPipeline: Frustum culled indirect draw submitted 1024 source instances 
 GPU culling 结果可以直接决定 indirect draw 的实例数量
 ```
 
-后续性能版需要把 culling 改成并行写入 visible list，并增加更严格的 GPU 端 visible count readback。
+后续性能版需要把 culling 改成并行写入 visible list，并把当前固定测试 frustum plane 换成真实相机视锥。

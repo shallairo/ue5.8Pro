@@ -17,6 +17,7 @@ plan-YYYY-MM-DD-topic.md
 - `plan-2026-06-03-gpu-instance-data-path.md`
 - `plan-2026-06-04-indirect-draw-mvp.md`
 - `plan-2026-06-12-gpu-frustum-culling-mvp.md`
+- `plan-2026-06-12-gpu-visible-count-and-camera-frustum.md`
 
 ## 当前计划
 
@@ -58,8 +59,16 @@ plan-YYYY-MM-DD-topic.md
 
 说明：
 
-下一阶段计划：在 indirect draw 之前加入最小 GPU frustum culling，输出可见实例列表，并让 indirect draw 只绘制可见实例。
+本阶段已完成并通过 UE 日志验证：GPU 可以输出可见实例列表和 indirect args，并让 draw 只绘制可见实例。
+
+### 6. GPU Visible Count 与 Camera Frustum
+
+- [plan-2026-06-12-gpu-visible-count-and-camera-frustum.md](/D:/ue/ue5.8Pro/docs/plan/plan-2026-06-12-gpu-visible-count-and-camera-frustum.md)
+
+说明：
+
+下一阶段计划：先增加 GPU visible count readback，严格验证 GPU 裁剪数量；再把固定测试 frustum plane 替换为真实相机视锥参数。
 
 ## 下一步建议
 
-优先执行 `GPU Frustum Culling MVP`，先验证“GPU 决定哪些实例可见，再驱动 indirect draw”，之后再考虑更真实的实例来源或 UE 场景渲染路径接入。
+优先执行 `GPU Visible Count 与 Camera Frustum`，先把验证闭环做严谨，再让裁剪结果跟随真实相机变化。之后再考虑并行 culling 或真实场景实例来源。

@@ -32,6 +32,7 @@ void BuildIndirectArgsCS(uint3 ThreadID : SV_DispatchThreadID)
 
 StructuredBuffer<FGPUDrivenInstanceData> InstanceData;
 float2 RenderTargetSize;
+float2 GridWorldMin;
 float2 GridWorldExtent;
 float QuadPixelSize;
 
@@ -72,7 +73,7 @@ FVertexOutput MainVS(uint VertexID : SV_VertexID, uint InstanceID : SV_InstanceI
     const FGPUDrivenInstanceData Instance = InstanceData[InstanceID];
 
     const float2 SafeExtent = max(GridWorldExtent, float2(1.0, 1.0));
-    const float2 Normalized = float2(Instance.Position.x / SafeExtent.x, Instance.Position.y / SafeExtent.y);
+    const float2 Normalized = (Instance.Position.xy - GridWorldMin) / SafeExtent;
     const float2 Center = float2(Normalized.x * 2.0 - 1.0, 1.0 - Normalized.y * 2.0);
 
     const float2 QuadHalfSizeNDC = float2(

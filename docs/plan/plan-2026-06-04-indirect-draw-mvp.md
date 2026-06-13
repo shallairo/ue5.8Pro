@@ -71,7 +71,7 @@ GPU 写出的 indirect args 可以驱动一次真实 draw
 
 实现完成后新增或更新：
 
-- `docs/test-indirect-draw-mvp.md`
+- `docs/test/test-indirect-draw-mvp.md`
 - `docs/learning/YYYY-MM-DD-HHMM-indirect-draw-mvp.md`
 
 学习日志必须结合源码讲解：

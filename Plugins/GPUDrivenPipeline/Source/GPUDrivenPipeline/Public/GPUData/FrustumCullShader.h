@@ -16,6 +16,7 @@ class GPUDRIVENPIPELINE_API FFrustumCullInstancesShader : public FGlobalShader
         SHADER_PARAMETER_SRV(StructuredBuffer<FGPUDrivenInstanceData>, InstanceData)
         SHADER_PARAMETER_UAV(RWStructuredBuffer<FGPUDrivenInstanceData>, OutVisibleInstanceData)
         SHADER_PARAMETER_UAV(RWBuffer<uint>, OutIndirectArgs)
+        SHADER_PARAMETER_UAV(RWBuffer<uint>, OutSummary)
         SHADER_PARAMETER(uint32, InstanceCount)
         SHADER_PARAMETER(FVector4f, FrustumPlane0)
         SHADER_PARAMETER(FVector4f, FrustumPlane1)

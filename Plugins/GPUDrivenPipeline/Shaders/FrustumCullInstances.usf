@@ -15,6 +15,7 @@ struct FGPUDrivenInstanceData
 StructuredBuffer<FGPUDrivenInstanceData> InstanceData;
 RWStructuredBuffer<FGPUDrivenInstanceData> OutVisibleInstanceData;
 RWBuffer<uint> OutIndirectArgs;
+RWBuffer<uint> OutSummary;
 
 uint InstanceCount;
 float4 FrustumPlane0;
@@ -67,4 +68,7 @@ void CullInstancesCS(uint3 ThreadID : SV_DispatchThreadID)
     OutIndirectArgs[1] = VisibleCount;
     OutIndirectArgs[2] = 0;
     OutIndirectArgs[3] = 0;
+
+    OutSummary[0] = VisibleCount;
+    OutSummary[1] = InstanceCount;
 }

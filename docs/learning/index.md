@@ -74,3 +74,11 @@ YYYY-MM-DD-HHMM-topic.md
 内容：
 
 结合 `FrustumCullInstances.usf`、`FFrustumCullInstancesShader` 和新的蓝图入口讲解“GPU 做最小视锥裁剪，并用可见实例驱动 indirect draw”的路径。
+
+### 8. GPU Visible Count 与 Camera Frustum
+
+- [2026-06-13-1000-gpu-visible-count-and-camera-frustum.md](/D:/ue/ue5.8Pro/docs/learning/2026-06-13-1000-gpu-visible-count-and-camera-frustum.md)
+
+内容：
+
+结合 `Get Last Frustum Cull Result`、GPU readback 和 `Execute Camera Frustum Culled Indirect Draw` 讲解“严格验证 GPU 可见数量，并让裁剪结果随真实相机变化”的路径。

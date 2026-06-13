@@ -33,10 +33,13 @@ CPU 生成测试实例
 -> 上传原始 InstanceData structured buffer
 -> 创建 VisibleInstanceData UAV/SRV
 -> 创建 IndirectArgs UAV
+-> 创建 Summary UAV / Readback
 -> FrustumCullInstances.usf 做 GPU 裁剪
 -> GPU 写 VisibleInstanceData
 -> GPU 写 IndirectArgs.InstanceCount
+-> GPU 写 Summary.VisibleCount
 -> DrawPrimitiveIndirect 绘制 visible buffer
+-> CPU 通过 Readback 获取 GpuVisibleCount
 -> RT_GPUComputeOutput 显示裁剪后的结果
 ```
 
@@ -51,6 +54,7 @@ CPU 生成测试实例
 - `InstanceData`：原始实例数据 SRV
 - `OutVisibleInstanceData`：裁剪后实例 UAV
 - `OutIndirectArgs`：indirect draw 参数 UAV
+- `OutSummary`：GPU visible count summary UAV
 - `InstanceCount`：输入实例数量
 - `FrustumPlane0` 到 `FrustumPlane5`：6 个测试视锥平面
 
@@ -60,7 +64,7 @@ CPU 生成测试实例
 
 1. 遍历所有输入实例。
 2. 使用包围球和平面方程判断实例是否可见。
-3. 把可见实例写入 compact visible buffer，并把可见数量写入 indirect args。
+3. 把可见实例写入 compact visible buffer，并把可见数量写入 indirect args 和 summary buffer。
 
 平面测试的核心形式是：
 
@@ -109,9 +113,35 @@ GPU culling 结果可以决定 indirect args 里的 InstanceCount
 
 当前 Output Log 的 `estimated-visible` 是 CPU 使用同一组测试平面估算出来的值，用于第一版调试对照；真正控制绘制数量的是 GPU 写入 `IndirectArgsBuffer` 的 `InstanceCount`。
 
+当前已验证日志：
+
+```text
+GPUDrivenPipeline: Frustum culled indirect draw submitted 256 source instances to RT_GPUComputeOutput (1024x1024, estimated-visible=64, instance-bytes=8192, cpu-cull=0.042 ms, cpu-draw=0.000 ms).
+GPUDrivenPipeline: Frustum culled indirect draw submitted 1024 source instances to RT_GPUComputeOutput (1024x1024, estimated-visible=256, instance-bytes=32768, cpu-cull=0.018 ms, cpu-draw=0.000 ms).
+GPUDrivenPipeline: Frustum culled indirect draw submitted 4096 source instances to RT_GPUComputeOutput (1024x1024, estimated-visible=1024, instance-bytes=131072, cpu-cull=0.009 ms, cpu-draw=0.000 ms).
+```
+
+这些结果说明固定测试平面稳定保留了规则网格的中间四分之一区域，且当前 MVP 已经验证“GPU culling 结果可以控制最终 indirect draw 的实例数量”。
+
+当前代码已经进一步补上第一版严格验证接口：
+
+```cpp
+Get Last Frustum Cull Result(FGPUDrivenFrustumCullResult& OutResult)
+```
+
+这个接口会通过 `FRHIGPUBufferReadback` 回读 GPU summary，并返回：
+
+- `InstanceCount`
+- `EstimatedVisibleCount`
+- `GpuVisibleCount`
+- `BufferSizeBytes`
+- `CpuCullDispatchTimeMs`
+- `CpuDrawDispatchTimeMs`
+
+也就是说，当前阶段已经不再只依赖画面和 CPU 估算值，蓝图可以直接读取 GPU 端的可见实例数量。
+
 后续如果要做更严格验证，应增加：
 
-- GPU visible count readback
 - 并行 culling 写入 visible list
 - 从真实 view/projection 矩阵提取 frustum plane
 - Tick 或交互参数驱动 frustum 变化

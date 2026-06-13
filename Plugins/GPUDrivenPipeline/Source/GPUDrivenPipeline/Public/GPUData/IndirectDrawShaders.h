@@ -30,6 +30,7 @@ class GPUDRIVENPIPELINE_API FIndirectDrawInstanceVS : public FGlobalShader
         SHADER_PARAMETER_SRV(StructuredBuffer<FGPUDrivenInstanceData>, InstanceData)
         SHADER_PARAMETER(uint32, InstanceCount)
         SHADER_PARAMETER(FVector2f, RenderTargetSize)
+        SHADER_PARAMETER(FVector2f, GridWorldMin)
         SHADER_PARAMETER(FVector2f, GridWorldExtent)
         SHADER_PARAMETER(float, QuadPixelSize)
     END_SHADER_PARAMETER_STRUCT()
